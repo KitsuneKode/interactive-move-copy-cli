@@ -1,0 +1,70 @@
+export const ANSI = {
+  altScreenOn: "\x1b[?1049h",
+  altScreenOff: "\x1b[?1049l",
+  cursorHide: "\x1b[?25l",
+  cursorShow: "\x1b[?25h",
+  clearScreen: "\x1b[2J",
+  clearLine: "\x1b[2K",
+  moveTo: (row: number, col: number) => `\x1b[${row};${col}H`,
+  moveToCol: (col: number) => `\x1b[${col}G`,
+
+  reset: "\x1b[0m",
+  bold: "\x1b[1m",
+  dim: "\x1b[2m",
+  italic: "\x1b[3m",
+  underline: "\x1b[4m",
+  inverse: "\x1b[7m",
+
+  // Foreground colors
+  black: "\x1b[30m",
+  red: "\x1b[31m",
+  green: "\x1b[32m",
+  yellow: "\x1b[33m",
+  blue: "\x1b[34m",
+  magenta: "\x1b[35m",
+  cyan: "\x1b[36m",
+  white: "\x1b[37m",
+  gray: "\x1b[90m",
+
+  // Background colors
+  bgBlack: "\x1b[40m",
+  bgRed: "\x1b[41m",
+  bgGreen: "\x1b[42m",
+  bgYellow: "\x1b[43m",
+  bgBlue: "\x1b[44m",
+  bgMagenta: "\x1b[45m",
+  bgCyan: "\x1b[46m",
+  bgWhite: "\x1b[47m",
+} as const;
+
+export const KEYS = {
+  UP: "\x1b[A",
+  DOWN: "\x1b[B",
+  RIGHT: "\x1b[C",
+  LEFT: "\x1b[D",
+  SPACE: "\x20",
+  ENTER: "\x0d",
+  BACKSPACE: "\x7f",
+  ESCAPE: "\x1b",
+  CTRL_C: "\x03",
+  CTRL_A: "\x01",
+  CTRL_D: "\x04",
+  TAB: "\x09",
+} as const;
+
+export const COLORS = {
+  header: `${ANSI.bold}${ANSI.cyan}`,
+  selected: `${ANSI.green}`,
+  cursor: `${ANSI.inverse}`,
+  directory: `${ANSI.bold}${ANSI.blue}`,
+  symlink: `${ANSI.cyan}`,
+  search: `${ANSI.yellow}`,
+  error: `${ANSI.red}`,
+  dim: `${ANSI.dim}`,
+  status: `${ANSI.bold}${ANSI.white}`,
+  hint: `${ANSI.gray}`,
+  matchHighlight: `${ANSI.yellow}${ANSI.bold}`,
+  checkbox: `${ANSI.green}`,
+  success: `${ANSI.green}`,
+  fail: `${ANSI.red}`,
+} as const;

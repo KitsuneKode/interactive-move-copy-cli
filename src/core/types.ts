@@ -1,0 +1,49 @@
+export interface FileEntry {
+  name: string;
+  path: string;
+  isDirectory: boolean;
+  isSymlink: boolean;
+  size: number;
+  modifiedAt: Date;
+  icon: string;
+  formattedSize: string;
+  formattedDate: string;
+  readable: boolean;
+}
+
+export interface SelectionState {
+  selected: Set<string>;
+  cursor: number;
+  scrollOffset: number;
+  searchQuery: string;
+  currentDir: string;
+}
+
+export interface KeyEvent {
+  name: string;
+  raw: Buffer;
+  ctrl: boolean;
+  shift: boolean;
+  char: string;
+}
+
+export type OperationMode = "move" | "copy";
+
+export interface NavigationEntry {
+  dir: string;
+  cursor: number;
+  scrollOffset: number;
+}
+
+export interface FuzzyResult {
+  matches: boolean;
+  score: number;
+  positions: number[];
+}
+
+export interface ExecutionResult {
+  source: string;
+  dest: string;
+  success: boolean;
+  error?: string;
+}
