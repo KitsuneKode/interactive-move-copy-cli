@@ -109,6 +109,8 @@ Execution
 | Key | Action |
 |-----|--------|
 | Up/Down | Navigate file list |
+| Left | Go to parent / delete search char |
+| Right | Open directory |
 | Space | Toggle selection on current file |
 | Enter | Open directory / confirm selection |
 | Backspace | Delete search char / go to parent |
@@ -123,6 +125,8 @@ Execution
 | Key | Action |
 |-----|--------|
 | Up/Down | Navigate directories |
+| Left | Go to parent |
+| Right | Open directory |
 | Enter | Open directory |
 | Backspace | Go to parent |
 | c | Confirm current directory |

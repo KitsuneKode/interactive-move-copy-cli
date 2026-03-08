@@ -49,6 +49,30 @@ export async function folderPicker(
         if (cursor < maxCursor) cursor++;
         break;
 
+      case "left": {
+        const parent = dirname(currentDir);
+        if (parent !== currentDir) {
+          currentDir = parent;
+          cursor = 0;
+          scrollOffset = 0;
+          invalidateCache();
+        }
+        break;
+      }
+
+      case "right": {
+        if (cursor > 0) {
+          const dir = dirs[cursor - 1];
+          if (dir) {
+            currentDir = dir.path;
+            cursor = 0;
+            scrollOffset = 0;
+            invalidateCache();
+          }
+        }
+        break;
+      }
+
       case "enter": {
         if (cursor === 0) {
           const parent = dirname(currentDir);
@@ -151,7 +175,7 @@ function renderPicker(
 
   // Hints
   lines.push(
-    ` ${COLORS.hint}Enter:open  c:confirm current dir  Backspace:parent  Esc:cancel${ANSI.reset}`
+    ` ${COLORS.hint}Left:parent Right:open Enter:open c:confirm Esc:cancel${ANSI.reset}`
   );
 
   render(lines);

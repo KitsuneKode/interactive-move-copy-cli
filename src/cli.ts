@@ -26,6 +26,8 @@ Options:
 
 Keybindings (source selection):
   Up/Down     Navigate files
+  Left        Go to parent / delete search char
+  Right       Open directory
   Space       Toggle selection
   Enter       Open directory / confirm selection
   Backspace   Go to parent / delete search char
@@ -37,6 +39,8 @@ Keybindings (source selection):
 
 Keybindings (destination):
   Up/Down     Navigate directories
+  Left        Go to parent
+  Right       Open directory
   Enter       Open directory
   c           Confirm current directory
   Backspace   Go to parent

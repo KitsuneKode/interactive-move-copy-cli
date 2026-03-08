@@ -69,6 +69,22 @@ export async function fileBrowser(startDir: string, mode: OperationMode): Promis
         if (state.cursor < maxCursor) state.cursor++;
         break;
 
+      case "left": {
+        if (state.searchQuery) {
+          state.searchQuery = state.searchQuery.slice(0, -1);
+          state.cursor = 0;
+          state.scrollOffset = 0;
+        } else {
+          goToParent(state, navStack);
+        }
+        break;
+      }
+
+      case "right": {
+        openCurrentEntry(state, displayEntries, navStack);
+        break;
+      }
+
       case "space": {
         if (state.cursor === 0) break; // ".." row
         const entry = displayEntries[state.cursor - 1];
@@ -84,33 +100,13 @@ export async function fileBrowser(startDir: string, mode: OperationMode): Promis
       }
 
       case "enter": {
-        if (state.cursor === 0) {
-          // Go to parent
-          const parent = dirname(state.currentDir);
-          if (parent !== state.currentDir) {
-            navStack.push({ dir: state.currentDir, cursor: state.cursor, scrollOffset: state.scrollOffset });
-            state.currentDir = parent;
-            state.cursor = 0;
-            state.scrollOffset = 0;
-            state.searchQuery = "";
-            invalidateCache();
-          }
-        } else {
-          const entry = displayEntries[state.cursor - 1];
-          if (entry?.isDirectory && entry.readable) {
-            navStack.push({ dir: state.currentDir, cursor: state.cursor, scrollOffset: state.scrollOffset });
-            state.currentDir = entry.path;
-            state.cursor = 0;
-            state.scrollOffset = 0;
-            state.searchQuery = "";
-            invalidateCache();
-          } else if (state.selected.size > 0) {
-            return {
-              selected: [...state.selected],
-              currentDir: state.currentDir,
-              cancelled: false,
-            };
-          }
+        const opened = openCurrentEntry(state, displayEntries, navStack);
+        if (!opened && state.selected.size > 0) {
+          return {
+            selected: [...state.selected],
+            currentDir: state.currentDir,
+            cancelled: false,
+          };
         }
         break;
       }
@@ -121,15 +117,7 @@ export async function fileBrowser(startDir: string, mode: OperationMode): Promis
           state.cursor = 0;
           state.scrollOffset = 0;
         } else {
-          // Go to parent
-          const parent = dirname(state.currentDir);
-          if (parent !== state.currentDir) {
-            navStack.push({ dir: state.currentDir, cursor: state.cursor, scrollOffset: state.scrollOffset });
-            state.currentDir = parent;
-            state.cursor = 0;
-            state.scrollOffset = 0;
-            invalidateCache();
-          }
+          goToParent(state, navStack);
         }
         break;
 
@@ -158,6 +146,42 @@ export async function fileBrowser(startDir: string, mode: OperationMode): Promis
         break;
     }
   }
+}
+
+function goToParent(state: SelectionState, navStack: NavigationEntry[]): void {
+  const parent = dirname(state.currentDir);
+  if (parent !== state.currentDir) {
+    navStack.push({ dir: state.currentDir, cursor: state.cursor, scrollOffset: state.scrollOffset });
+    state.currentDir = parent;
+    state.cursor = 0;
+    state.scrollOffset = 0;
+    state.searchQuery = "";
+    invalidateCache();
+  }
+}
+
+function openCurrentEntry(
+  state: SelectionState,
+  entries: FileEntry[],
+  navStack: NavigationEntry[],
+): boolean {
+  if (state.cursor === 0) {
+    goToParent(state, navStack);
+    return true;
+  }
+
+  const entry = entries[state.cursor - 1];
+  if (entry?.isDirectory && entry.readable) {
+    navStack.push({ dir: state.currentDir, cursor: state.cursor, scrollOffset: state.scrollOffset });
+    state.currentDir = entry.path;
+    state.cursor = 0;
+    state.scrollOffset = 0;
+    state.searchQuery = "";
+    invalidateCache();
+    return true;
+  }
+
+  return false;
 }
 
 function filterEntries(entries: FileEntry[], query: string): FileEntry[] {
@@ -248,7 +272,7 @@ function renderBrowser(
     lines.push(` ${COLORS.dim}Selected: ${names}${ANSI.reset}`);
   } else {
     lines.push(
-      ` ${COLORS.hint}Space:toggle Enter:open/confirm Ctrl+A:all Ctrl+D:clear Esc:quit${ANSI.reset}`
+      ` ${COLORS.hint}Left:parent Right:open Space:toggle Enter:confirm Esc:quit${ANSI.reset}`
     );
   }
 
