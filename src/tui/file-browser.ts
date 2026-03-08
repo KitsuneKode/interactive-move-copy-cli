@@ -85,7 +85,16 @@ export async function fileBrowser(startDir: string, mode: OperationMode): Promis
       }
 
       case "right": {
-        openCurrentEntry(state, displayEntries, navStack);
+        if (state.cursor === 0) break;
+
+        const opened = openCurrentEntry(state, displayEntries, navStack);
+        if (!opened && state.selected.size > 0) {
+          return {
+            selected: [...state.selected],
+            currentDir: state.currentDir,
+            cancelled: false,
+          };
+        }
         break;
       }
 
