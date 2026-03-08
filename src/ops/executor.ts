@@ -1,5 +1,6 @@
 import { $ } from "bun";
 import { basename, join } from "node:path";
+import { stat } from "node:fs/promises";
 import type { OperationMode, ExecutionResult } from "../core/types.ts";
 import { ANSI, COLORS } from "../core/constants.ts";
 
@@ -21,20 +22,31 @@ export async function executeOperation(
       `  [${i + 1}/${total}] ${name} ... `
     );
 
+    // Verify source still exists (TOCTOU guard)
+    try {
+      await stat(source);
+    } catch {
+      process.stdout.write(`${COLORS.fail}✗${ANSI.reset} file no longer exists\n`);
+      results.push({ source, dest, success: false, error: "file no longer exists" });
+      continue;
+    }
+
+    // No-clobber check: skip if destination exists and overwrite is false
+    if (!overwrite) {
+      const destExists = await stat(dest).then(() => true).catch(() => false);
+      if (destExists) {
+        process.stdout.write(`${COLORS.fail}✗${ANSI.reset} already exists at destination (skipped)\n`);
+        results.push({ source, dest, success: false, error: "already exists at destination" });
+        continue;
+      }
+    }
+
     try {
       let result;
       if (mode === "move") {
-        if (overwrite) {
-          result = await $`mv -f ${source} ${dest}`.nothrow().quiet();
-        } else {
-          result = await $`mv -n ${source} ${dest}`.nothrow().quiet();
-        }
+        result = await $`mv ${source} ${dest}`.nothrow().quiet();
       } else {
-        if (overwrite) {
-          result = await $`cp -rf ${source} ${dest}`.nothrow().quiet();
-        } else {
-          result = await $`cp -rn ${source} ${dest}`.nothrow().quiet();
-        }
+        result = await $`cp -r ${source} ${dest}`.nothrow().quiet();
       }
 
       if (result.exitCode === 0) {

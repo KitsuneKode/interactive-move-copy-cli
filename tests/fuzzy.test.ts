@@ -44,9 +44,9 @@ describe("fuzzyMatch", () => {
   });
 
   test("word boundary bonus", () => {
-    const boundaryMatch = fuzzyMatch("j", "package.json");
-    const midMatch = fuzzyMatch("a", "package.json");
-    // 'j' is after '.', a word boundary
+    // Compare two matches at similar positions — word boundary should score higher
+    const boundaryMatch = fuzzyMatch("j", "aa.json");  // 'j' at index 3, word boundary
+    const midMatch = fuzzyMatch("s", "aa.json");       // 's' at index 4, not boundary
     expect(boundaryMatch.score).toBeGreaterThan(midMatch.score);
   });
 

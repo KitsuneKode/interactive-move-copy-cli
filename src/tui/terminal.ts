@@ -2,6 +2,7 @@ import { ANSI, KEYS } from "../core/constants.ts";
 import type { KeyEvent } from "../core/types.ts";
 
 let rawModeEnabled = false;
+let altScreenEnabled = false;
 
 export function enterRawMode(): void {
   if (process.stdin.isTTY) {
@@ -22,10 +23,14 @@ export function exitRawMode(): void {
 
 export function enterAltScreen(): void {
   process.stdout.write(ANSI.altScreenOn + ANSI.cursorHide);
+  altScreenEnabled = true;
 }
 
 export function exitAltScreen(): void {
-  process.stdout.write(ANSI.cursorShow + ANSI.altScreenOff);
+  if (altScreenEnabled) {
+    process.stdout.write(ANSI.cursorShow + ANSI.altScreenOff);
+    altScreenEnabled = false;
+  }
 }
 
 export function cleanup(): void {

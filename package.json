@@ -1,8 +1,16 @@
 {
   "name": "interactive-move-cli",
-  "module": "index.ts",
+  "version": "1.0.0",
+  "module": "src/cli.ts",
   "type": "module",
   "private": true,
+  "bin": {
+    "mvi": "./src/bin/mvi.ts",
+    "cpi": "./src/bin/cpi.ts"
+  },
+  "scripts": {
+    "test": "bun test"
+  },
   "devDependencies": {
     "@types/bun": "latest"
   },
