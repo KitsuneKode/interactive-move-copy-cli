@@ -25,10 +25,9 @@ export function render(lines: string[]): void {
   let output = "";
 
   for (let i = 0; i < rows; i++) {
-    const line = lines[i] ?? "";
+    const line = truncate(lines[i] ?? "", cols);
     const prev = previousLines[i];
     if (line !== prev) {
-      // Truncate to terminal width (approximate - ANSI codes complicate this)
       output += ANSI.moveTo(i + 1, 1) + ANSI.clearLine + line;
     }
   }

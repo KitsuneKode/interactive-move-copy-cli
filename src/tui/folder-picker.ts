@@ -2,7 +2,7 @@ import { dirname, resolve, basename } from "node:path";
 import type { OperationMode } from "../core/types.ts";
 import { ANSI, COLORS } from "../core/constants.ts";
 import { readKey, getTerminalSize } from "./terminal.ts";
-import { render, getViewportHeight, padRight, stripAnsi } from "./renderer.ts";
+import { render, getViewportHeight } from "./renderer.ts";
 import { listDirectory, invalidateCache } from "../fs/file-info.ts";
 import type { FileEntry } from "../core/types.ts";
 

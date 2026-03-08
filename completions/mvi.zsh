@@ -1,38 +1,40 @@
-#compdef mvi cpi
+# Zsh completion bootstrap for mvi and cpi.
+# Source this file from .zshrc when you do not want to use fpath autoloading.
+
+_mvi_options() {
+  _values "mvi option" \
+    "-h[Show help]" \
+    "--help[Show help]" \
+    "-v[Show version]" \
+    "--version[Show version]"
+}
 
 _mvi() {
   emulate -L zsh -o extendedglob -o bareglobqual -o nullglob
 
-  local context curcontext="$curcontext" state line ret=1
-  typeset -A opt_args
-  typeset -a _arguments_options
-  _arguments_options=(-s -S -C)
+  if (( CURRENT == 2 )); then
+    if [[ ${words[CURRENT]} == -* ]]; then
+      _mvi_options
+      return
+    fi
 
-  _arguments "${_arguments_options[@]}" \
-    "(-h --help)"{-h,--help}"[Show help]" \
-    "(-v --version)"{-v,--version}"[Show version]" \
-    "1:directory:_directories" \
-    "*::arg:->mvi-args" && ret=0
-
-  case "$state" in
-    mvi-args)
-      # `mvi` and `cpi` accept at most one positional directory.
-      _message "no more arguments"
-      ret=0
-      ;;
-  esac
-
-  return ret
-}
-
-if [ "$funcstack[1]" = "_mvi" ]; then
-  _mvi "$@"
-else
-  if ! (( $+functions[compdef] )); then
-    autoload -Uz compinit
-    compinit -i -d "${XDG_CACHE_HOME:-$HOME/.cache}/zsh/.zcompdump-mvi"
+    _alternative \
+      "directories:directory:_directories" \
+      "options:option:_mvi_options"
+    return
   fi
 
-  compdef _mvi mvi
-  compdef _mvi cpi
+  _message "no more arguments"
+}
+
+_cpi() {
+  _mvi "$@"
+}
+
+if ! (( $+functions[compdef] )); then
+  autoload -Uz compinit
+  compinit -i -d "${XDG_CACHE_HOME:-$HOME/.cache}/zsh/.zcompdump-mvi"
 fi
+
+compdef _mvi mvi
+compdef _cpi cpi

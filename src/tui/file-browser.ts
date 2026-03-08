@@ -2,7 +2,7 @@ import { join, dirname, resolve, basename } from "node:path";
 import type { FileEntry, SelectionState, NavigationEntry, OperationMode } from "../core/types.ts";
 import { ANSI, COLORS } from "../core/constants.ts";
 import { readKey, getTerminalSize } from "./terminal.ts";
-import { render, getViewportHeight, padRight, stripAnsi, truncate } from "./renderer.ts";
+import { render, getViewportHeight, stripAnsi } from "./renderer.ts";
 import { listDirectory, invalidateCache } from "../fs/file-info.ts";
 import { fuzzyMatch, highlightMatch } from "./fuzzy.ts";
 import { padColumn } from "../fs/format.ts";

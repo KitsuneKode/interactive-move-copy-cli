@@ -160,20 +160,7 @@ source /path/to/interactive-move-cli/completions/mvi.bash
 
 ### Zsh
 
-Add the completions directory to your `fpath` in `~/.zshrc`:
-
-```sh
-fpath=(/path/to/interactive-move-cli/completions $fpath)
-autoload -Uz compinit && compinit
-```
-
-Or symlink directly:
-
-```sh
-ln -s /path/to/interactive-move-cli/completions/mvi.zsh ~/.zfunc/_mvi
-```
-
-If you prefer sourcing a file directly from `~/.zshrc`, this also works:
+Source the helper file directly from `~/.zshrc`:
 
 ```sh
 [[ ! -f ~/.config/zsh/mvi.zsh ]] || source ~/.config/zsh/mvi.zsh
