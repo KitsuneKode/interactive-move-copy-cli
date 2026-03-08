@@ -4,17 +4,30 @@
 	"module": "src/cli.ts",
 	"type": "module",
 	"private": true,
+	"engines": {
+		"bun": ">=1.0.0"
+	},
 	"bin": {
 		"mvi": "./src/bin/mvi.ts",
 		"cpi": "./src/bin/cpi.ts"
 	},
 	"scripts": {
-		"test": "bun test"
+		"clean": "rm -rf dist",
+		"build:js:mvi": "bun build --target=bun --outfile dist/mvi.js src/bin/mvi-build.ts",
+		"build:js:cpi": "bun build --target=bun --outfile dist/cpi.js src/bin/cpi-build.ts",
+		"build": "bun run clean && bun run build:js:mvi && bun run build:js:cpi",
+		"build:compile:mvi": "bun build --compile --target=bun --outfile dist/mvi src/bin/mvi-build.ts",
+		"build:compile:cpi": "bun build --compile --target=bun --outfile dist/cpi src/bin/cpi-build.ts",
+		"build:compile": "bun run build:compile:mvi && bun run build:compile:cpi",
+		"test": "bun test",
+		"check": "bun run test",
+		"link:global": "bun run build && bun link",
+		"unlink:global": "bun unlink",
+		"relink:global": "bun unlink && bun run link:global",
+		"prepublishOnly": "bun run test && bun run build"
 	},
 	"devDependencies": {
-		"@types/bun": "latest"
-	},
-	"peerDependencies": {
+		"@types/bun": "latest",
 		"typescript": "^5"
 	}
 }

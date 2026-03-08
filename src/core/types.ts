@@ -28,6 +28,7 @@ export interface KeyEvent {
 }
 
 export type OperationMode = "move" | "copy";
+export type OperationStrategy = "rename" | "verified_copy" | "verified_copy_delete";
 
 export interface NavigationEntry {
   dir: string;
@@ -46,4 +47,8 @@ export interface ExecutionResult {
   dest: string;
   success: boolean;
   error?: string;
+  strategy: OperationStrategy;
+  verified: boolean;
+  bytesVerified: number;
+  recoveryPath?: string;
 }

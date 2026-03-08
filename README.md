@@ -1,8 +1,10 @@
 # mvi / cpi
 
-Interactive terminal file move and copy tools. Browse files visually, multi-select with fuzzy search, pick a destination folder, and execute — all without typing paths.
+Interactive terminal file move and copy tools. Browse files visually, multi-select with fuzzy search, pick a destination folder, and execute without typing paths.
 
 `mvi` moves files. `cpi` copies files. Same interface, same keybindings.
+
+You can select both files and directories. Selections persist while you navigate, so you can collect items from multiple directories before choosing the destination.
 
 ## Features
 
@@ -14,7 +16,8 @@ Interactive terminal file move and copy tools. Browse files visually, multi-sele
 - Pre-flight validation (permissions, conflicts, circular moves)
 - Explicit confirmation before any operation (`Y/n`)
 - No-clobber by default — never overwrites without asking
-- TOCTOU guard — verifies files still exist before each operation
+- Verified copy pipeline for copy and cross-device move operations
+- Recovery journal for interrupted overwrite replacement
 - Clean terminal restore on exit, Ctrl+C, or crash
 - Zero runtime dependencies — just Bun
 
@@ -26,13 +29,26 @@ Interactive terminal file move and copy tools. Browse files visually, multi-sele
 ## Install
 
 ```sh
-git clone https://github.com/KitsuneKode/interactive-move-cli.git
-cd interactive-move-cli
+git clone https://github.com/KitsuneKode/interactive-move-copy-cli.git
+cd interactive-move-copy-cli
 bun install
-bun link
+bun run link:global
 ```
 
 This installs `mvi` and `cpi` globally.
+
+### Useful Scripts
+
+```sh
+bun run build           # bundle CLI entrypoints into dist/
+bun run build:compile   # build standalone executables into dist/
+bun run test            # run the full test suite
+bun run check           # alias for the current verification suite
+bun run link:global     # build and link mvi/cpi globally
+bun run unlink:global   # remove the global link
+bun run relink:global   # refresh the global link after changes
+bun run clean           # remove dist/
+```
 
 ## Usage
 
@@ -60,7 +76,7 @@ mvi [dir]
 File Browser (alt screen)
   - Browse files/dirs in current directory
   - Type to fuzzy-search, Space to select, Enter to open dirs
-  - Press Enter with selections to confirm source files
+  - Press Enter with selections to confirm source files/directories
   |
   v
 Folder Picker (alt screen)
@@ -82,8 +98,8 @@ Confirmation Prompt
   |
   v
 Execution
-  - Runs native mv/cp per file via Bun.$
-  - Verifies each source still exists before operating (TOCTOU guard)
+  - Uses atomic rename for same-device moves when possible
+  - Uses hidden staging paths plus verification for copies and fallback moves
   - Shows per-file progress with checkmarks/crosses
   - Prints summary: N moved/copied, M failed
 ```
@@ -114,21 +130,23 @@ Execution
 
 ## Data Safety
 
-This tool is designed to never silently destroy data:
+This tool is designed to avoid silent data loss:
 
-1. **No-clobber default** — Uses `mv -n` / `cp -rn`. If a file with the same name exists at the destination, the operation is skipped unless you explicitly choose overwrite.
+1. **No-clobber default** — If a path with the same name exists at the destination, the operation is skipped unless you explicitly choose overwrite.
 
 2. **Explicit confirmation** — A final `[Y/n]` prompt shows exactly what will happen before any operation runs.
 
-3. **Conflict detection** — Before execution, the validator checks every source filename against the destination. If conflicts exist, you choose: overwrite all, skip conflicts, or abort entirely.
+3. **Verified staging** — Copies and cross-device moves write into a hidden staging path, verify the staged result against the source, and only then promote it to the final destination.
 
-4. **Circular move prevention** — Detects and blocks attempts to move a directory into its own subdirectory.
+4. **Safe replacement** — Overwrite mode replaces the existing destination path instead of merging or nesting directories.
 
-5. **TOCTOU guard** — Each file is stat-checked immediately before the mv/cp call. If a file was deleted between selection and execution, it's reported as failed and the rest continue.
+5. **Conflict detection** — Before execution, the validator checks destination conflicts, duplicate destination names within the selection, and parent/child overlaps that would cause partial or ambiguous results.
 
-6. **Native commands** — Uses the system's `mv` and `cp` directly via `Bun.$`. No custom file-copying logic that could partially write or corrupt data. Bun's shell template literals escape all arguments, preventing shell injection from filenames with special characters.
+6. **Recovery journal** — Interrupted overwrite replacements leave a journal so the next run can restore the previous destination if the final path was never promoted.
 
-7. **Clean exit** — Terminal state (raw mode, alternate screen, cursor visibility) is restored on normal exit, Ctrl+C, SIGINT, and SIGTERM.
+7. **Verified delete on move fallback** — When a move cannot use an atomic same-device rename, the source is deleted only after the destination copy has been verified.
+
+8. **Clean exit** — Terminal state (raw mode, alternate screen, cursor visibility) is restored on normal exit, Ctrl+C, SIGINT, and SIGTERM.
 
 ## Shell Completions
 
@@ -155,6 +173,14 @@ Or symlink directly:
 ln -s /path/to/interactive-move-cli/completions/mvi.zsh ~/.zfunc/_mvi
 ```
 
+If you prefer sourcing a file directly from `~/.zshrc`, this also works:
+
+```sh
+[[ ! -f ~/.config/zsh/mvi.zsh ]] || source ~/.config/zsh/mvi.zsh
+```
+
+The TUI requires an interactive terminal. `--help` and `--version` work in non-interactive shells, but browsing mode does not.
+
 ## Project Structure
 
 ```
@@ -172,11 +198,14 @@ src/
   fs/icons.ts              Nerd Font icon mapping
   fs/format.ts             Size/date formatting
   ops/validator.ts         Pre-flight validation
-  ops/executor.ts          mv/cp execution with progress
+  ops/executor.ts          Verified execution with progress
+  ops/safe-fs.ts           Staging, verification, and recovery journal logic
 tests/
+  cli.test.ts              Non-interactive runtime checks
   fuzzy.test.ts            Fuzzy matching tests
   format.test.ts           Formatting tests
   icons.test.ts            Icon resolution tests
+  recovery.test.ts         Journal recovery behavior
   validator.test.ts        Validation logic tests
 ```
 

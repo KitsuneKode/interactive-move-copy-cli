@@ -1,4 +1,5 @@
 import { resolve } from "node:path";
+import { stat } from "node:fs/promises";
 import type { OperationMode } from "./core/types.ts";
 import { ANSI, COLORS } from "./core/constants.ts";
 import { enterRawMode, exitRawMode, enterAltScreen, exitAltScreen, readKey, cleanup } from "./tui/terminal.ts";
@@ -6,7 +7,7 @@ import { clearPreviousFrame } from "./tui/renderer.ts";
 import { fileBrowser } from "./tui/file-browser.ts";
 import { folderPicker } from "./tui/folder-picker.ts";
 import { validateOperation } from "./ops/validator.ts";
-import { executeOperation, printSummary } from "./ops/executor.ts";
+import { executeOperation, printSummary, recoverPendingOperations } from "./ops/executor.ts";
 import { basename } from "node:path";
 
 const VERSION = "1.0.0";
@@ -45,6 +46,19 @@ Keybindings (destination):
 
 export async function run(mode: OperationMode): Promise<void> {
   const args = process.argv.slice(2);
+  const recovery = await recoverPendingOperations();
+
+  if (!recovery.canProceed) {
+    for (const message of recovery.messages) {
+      console.error(message);
+    }
+    process.exitCode = 1;
+    return;
+  }
+
+  for (const message of recovery.messages) {
+    console.log(message);
+  }
 
   for (const arg of args) {
     if (arg === "-h" || arg === "--help") {
@@ -58,6 +72,25 @@ export async function run(mode: OperationMode): Promise<void> {
   }
 
   const startDir = args[0] ? resolve(args[0]) : process.cwd();
+
+  if (!process.stdin.isTTY || !process.stdout.isTTY) {
+    console.error(`${mode === "move" ? "mvi" : "cpi"} requires an interactive TTY.`);
+    process.exitCode = 1;
+    return;
+  }
+
+  try {
+    const startDirStat = await stat(startDir);
+    if (!startDirStat.isDirectory()) {
+      console.error(`Start path "${startDir}" is not a directory.`);
+      process.exitCode = 1;
+      return;
+    }
+  } catch {
+    console.error(`Start directory "${startDir}" does not exist.`);
+    process.exitCode = 1;
+    return;
+  }
 
   // Phase 1: Select source files
   enterRawMode();
@@ -87,7 +120,7 @@ export async function run(mode: OperationMode): Promise<void> {
   }
 
   // Phase 3: Validate
-  const validation = await validateOperation(browserResult.selected, pickerResult.destination);
+  const validation = await validateOperation(browserResult.selected, pickerResult.destination, mode);
 
   if (!validation.valid) {
     cleanup();

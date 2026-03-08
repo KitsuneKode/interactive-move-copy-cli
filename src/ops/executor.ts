@@ -1,8 +1,19 @@
-import { $ } from "bun";
-import { basename, join } from "node:path";
-import { stat } from "node:fs/promises";
+import { basename } from "node:path";
 import type { OperationMode, ExecutionResult } from "../core/types.ts";
 import { ANSI, COLORS } from "../core/constants.ts";
+import { executeSafeOperation, recoverPendingTransactions } from "./safe-fs.ts";
+import { formatSize } from "../fs/format.ts";
+
+export async function recoverPendingOperations(): Promise<{
+  canProceed: boolean;
+  messages: string[];
+}> {
+  const status = await recoverPendingTransactions();
+  return {
+    canProceed: status.canProceed,
+    messages: [...status.recovered, ...status.errors],
+  };
+}
 
 export async function executeOperation(
   sources: string[],
@@ -16,52 +27,21 @@ export async function executeOperation(
   for (let i = 0; i < sources.length; i++) {
     const source = sources[i]!;
     const name = basename(source);
-    const dest = join(destination, name);
 
-    process.stdout.write(
-      `  [${i + 1}/${total}] ${name} ... `
-    );
+    process.stdout.write(`  [${i + 1}/${total}] ${name} ... `);
 
-    // Verify source still exists (TOCTOU guard)
-    try {
-      await stat(source);
-    } catch {
-      process.stdout.write(`${COLORS.fail}✗${ANSI.reset} file no longer exists\n`);
-      results.push({ source, dest, success: false, error: "file no longer exists" });
-      continue;
+    const result = await executeSafeOperation(source, destination, mode, overwrite);
+
+    if (result.success) {
+      process.stdout.write(`${COLORS.success}✓${ANSI.reset}\n`);
+    } else {
+      const recovery = result.recoveryPath
+        ? ` (recovery journal: ${result.recoveryPath})`
+        : "";
+      process.stdout.write(`${COLORS.fail}✗${ANSI.reset} ${result.error}${recovery}\n`);
     }
 
-    // No-clobber check: skip if destination exists and overwrite is false
-    if (!overwrite) {
-      const destExists = await stat(dest).then(() => true).catch(() => false);
-      if (destExists) {
-        process.stdout.write(`${COLORS.fail}✗${ANSI.reset} already exists at destination (skipped)\n`);
-        results.push({ source, dest, success: false, error: "already exists at destination" });
-        continue;
-      }
-    }
-
-    try {
-      let result;
-      if (mode === "move") {
-        result = await $`mv ${source} ${dest}`.nothrow().quiet();
-      } else {
-        result = await $`cp -r ${source} ${dest}`.nothrow().quiet();
-      }
-
-      if (result.exitCode === 0) {
-        process.stdout.write(`${COLORS.success}✓${ANSI.reset}\n`);
-        results.push({ source, dest, success: true });
-      } else {
-        const errMsg = result.stderr.toString().trim();
-        process.stdout.write(`${COLORS.fail}✗${ANSI.reset} ${errMsg}\n`);
-        results.push({ source, dest, success: false, error: errMsg });
-      }
-    } catch (err) {
-      const errMsg = err instanceof Error ? err.message : String(err);
-      process.stdout.write(`${COLORS.fail}✗${ANSI.reset} ${errMsg}\n`);
-      results.push({ source, dest, success: false, error: errMsg });
-    }
+    results.push(result);
   }
 
   return results;
@@ -70,12 +50,20 @@ export async function executeOperation(
 export function printSummary(results: ExecutionResult[], mode: OperationMode): void {
   const succeeded = results.filter((r) => r.success).length;
   const failed = results.filter((r) => !r.success).length;
+  const bytesVerified = results.reduce((sum, result) => sum + result.bytesVerified, 0);
   const verb = mode === "move" ? "moved" : "copied";
+  const verifiedPart = bytesVerified > 0
+    ? `${COLORS.dim} (${formatSize(bytesVerified)} verified)${ANSI.reset}`
+    : "";
 
   console.log("");
   if (failed === 0) {
-    console.log(`${COLORS.success}✓ ${succeeded} file${succeeded !== 1 ? "s" : ""} ${verb} successfully${ANSI.reset}`);
+    console.log(
+      `${COLORS.success}✓ ${succeeded} file${succeeded !== 1 ? "s" : ""} ${verb} successfully${ANSI.reset}${verifiedPart}`
+    );
   } else {
-    console.log(`${COLORS.success}✓ ${succeeded} ${verb}${ANSI.reset}, ${COLORS.fail}✗ ${failed} failed${ANSI.reset}`);
+    console.log(
+      `${COLORS.success}✓ ${succeeded} ${verb}${ANSI.reset}, ${COLORS.fail}✗ ${failed} failed${ANSI.reset}${verifiedPart}`
+    );
   }
 }

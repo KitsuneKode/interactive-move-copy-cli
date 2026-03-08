@@ -22,8 +22,10 @@ export function exitRawMode(): void {
 }
 
 export function enterAltScreen(): void {
-  process.stdout.write(ANSI.altScreenOn + ANSI.cursorHide);
-  altScreenEnabled = true;
+  if (process.stdout.isTTY) {
+    process.stdout.write(ANSI.altScreenOn + ANSI.cursorHide);
+    altScreenEnabled = true;
+  }
 }
 
 export function exitAltScreen(): void {
@@ -90,9 +92,9 @@ export function onResize(callback: () => void): void {
 process.on("exit", cleanup);
 process.on("SIGINT", () => {
   cleanup();
-  process.exit(0);
+  process.exit(130);
 });
 process.on("SIGTERM", () => {
   cleanup();
-  process.exit(0);
+  process.exit(143);
 });
