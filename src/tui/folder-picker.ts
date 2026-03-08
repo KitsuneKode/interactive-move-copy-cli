@@ -1,10 +1,9 @@
-import { dirname, resolve, basename } from "node:path";
-import type { OperationMode } from "../core/types.ts";
+import { dirname, resolve } from "node:path";
 import { ANSI, COLORS } from "../core/constants.ts";
-import { readKey, getTerminalSize } from "./terminal.ts";
-import { render, getViewportHeight } from "./renderer.ts";
-import { listDirectory, invalidateCache } from "../fs/file-info.ts";
-import type { FileEntry } from "../core/types.ts";
+import type { FileEntry, OperationMode } from "../core/types.ts";
+import { invalidateCache, listDirectory } from "../fs/file-info.ts";
+import { getViewportHeight, render } from "./renderer.ts";
+import { getTerminalSize, readKey } from "./terminal.ts";
 
 interface PickerResult {
   destination: string | null;
@@ -131,12 +130,12 @@ function renderPicker(
 
   // Header
   lines.push(
-    `${COLORS.header} ${modeLabel}: Select destination ${ANSI.reset}${COLORS.dim} ${dirDisplay} ${ANSI.reset}`
+    `${COLORS.header} ${modeLabel}: Select destination ${ANSI.reset}${COLORS.dim} ${dirDisplay} ${ANSI.reset}`,
   );
 
   // Info
   lines.push(
-    ` ${COLORS.status}${fileCount} file${fileCount !== 1 ? "s" : ""} to ${mode}${ANSI.reset}`
+    ` ${COLORS.status}${fileCount} file${fileCount !== 1 ? "s" : ""} to ${mode}${ANSI.reset}`,
   );
 
   // Column header
@@ -153,8 +152,7 @@ function renderPicker(
   const dotdotSuffix = cursor === 0 ? ANSI.reset : "";
   allRows.push(` ${dotdotPrefix}  \uf07c ..${dotdotSuffix}`);
 
-  for (let i = 0; i < dirs.length; i++) {
-    const dir = dirs[i]!;
+  for (const [i, dir] of dirs.entries()) {
     const isCursor = cursor === i + 1;
     const prefix = isCursor ? COLORS.cursor : "";
     const suffix = isCursor ? ANSI.reset : "";
@@ -174,9 +172,7 @@ function renderPicker(
   lines.push(` ${dirs.length} director${dirs.length !== 1 ? "ies" : "y"}`);
 
   // Hints
-  lines.push(
-    ` ${COLORS.hint}Left:parent Right:open Enter:open c:confirm Esc:cancel${ANSI.reset}`
-  );
+  lines.push(` ${COLORS.hint}Left:parent Right:open Enter:open c:confirm Esc:cancel${ANSI.reset}`);
 
   render(lines);
 }

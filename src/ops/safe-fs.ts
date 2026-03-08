@@ -1,11 +1,13 @@
+import { createHash, randomUUID } from "node:crypto";
+import { createReadStream } from "node:fs";
 import {
   chmod,
   copyFile,
   lstat,
   mkdir,
   open,
-  readFile,
   readdir,
+  readFile,
   readlink,
   rename,
   rm,
@@ -14,11 +16,9 @@ import {
   unlink,
   writeFile,
 } from "node:fs/promises";
-import { createReadStream } from "node:fs";
-import { basename, dirname, join } from "node:path";
-import { createHash, randomUUID } from "node:crypto";
 import { tmpdir } from "node:os";
-import type { ExecutionResult, OperationMode, OperationStrategy } from "../core/types.ts";
+import { basename, dirname, join } from "node:path";
+import type { ExecutionResult, OperationMode } from "../core/types.ts";
 
 interface ManifestEntry {
   relativePath: string;
@@ -68,7 +68,9 @@ function formatError(err: unknown): string {
 }
 
 async function pathExists(path: string): Promise<boolean> {
-  return lstat(path).then(() => true).catch(() => false);
+  return lstat(path)
+    .then(() => true)
+    .catch(() => false);
 }
 
 async function syncPath(path: string): Promise<void> {
@@ -113,7 +115,10 @@ async function buildManifest(rootPath: string): Promise<Manifest> {
       const children = await readdir(currentPath);
       children.sort((a, b) => a.localeCompare(b));
       for (const child of children) {
-        await walk(join(currentPath, child), relativePath === "." ? child : join(relativePath, child));
+        await walk(
+          join(currentPath, child),
+          relativePath === "." ? child : join(relativePath, child),
+        );
       }
       return;
     }
@@ -154,8 +159,12 @@ function manifestsMatch(source: Manifest, destination: Manifest): boolean {
   if (source.entries.length !== destination.entries.length) return false;
 
   for (let i = 0; i < source.entries.length; i++) {
-    const src = source.entries[i]!;
-    const dest = destination.entries[i]!;
+    const src = source.entries[i];
+    const dest = destination.entries[i];
+    if (src === undefined || dest === undefined) {
+      return false;
+    }
+
     if (src.relativePath !== dest.relativePath) return false;
     if (src.kind !== dest.kind) return false;
     if (src.mode !== dest.mode) return false;
@@ -237,7 +246,10 @@ async function removeJournal(journalPath: string): Promise<void> {
   await syncPath(RECOVERY_JOURNAL_DIR);
 }
 
-async function createReplacementJournal(finalPath: string, stagedPath?: string): Promise<JournalContext> {
+async function createReplacementJournal(
+  finalPath: string,
+  stagedPath?: string,
+): Promise<JournalContext> {
   const entry: RecoveryJournal = {
     id: uniqueSuffix(),
     finalPath,
@@ -263,7 +275,9 @@ async function restoreBackup(journal: JournalContext): Promise<boolean> {
   return true;
 }
 
-async function finalizeReplacement(journal: JournalContext): Promise<{ ok: boolean; error?: string }> {
+async function finalizeReplacement(
+  journal: JournalContext,
+): Promise<{ ok: boolean; error?: string }> {
   try {
     await removePath(journal.entry.backupPath);
     await removeJournal(journal.journalPath);
@@ -293,10 +307,7 @@ async function rollbackReplacement(
 }
 
 async function isSameDevice(source: string, destinationDir: string): Promise<boolean> {
-  const [sourceInfo, destinationInfo] = await Promise.all([
-    lstat(source),
-    stat(destinationDir),
-  ]);
+  const [sourceInfo, destinationInfo] = await Promise.all([lstat(source), stat(destinationDir)]);
   return sourceInfo.dev === destinationInfo.dev;
 }
 
@@ -502,11 +513,11 @@ export async function executeSafeOperation(
     };
   }
 
-  if (mode === "move" && await isSameDevice(source, destinationDir)) {
+  if (mode === "move" && (await isSameDevice(source, destinationDir))) {
     return executeRenameMove(source, finalPath, overwrite);
   }
 
-  if (!overwrite && await pathExists(finalPath)) {
+  if (!overwrite && (await pathExists(finalPath))) {
     return {
       source,
       dest: finalPath,
@@ -606,7 +617,7 @@ export async function recoverPendingTransactions(): Promise<RecoveryStatus> {
       } catch (err) {
         status.canProceed = false;
         status.errors.push(
-          `Failed to restore ${journal.finalPath} from ${journal.backupPath}: ${formatError(err)}`
+          `Failed to restore ${journal.finalPath} from ${journal.backupPath}: ${formatError(err)}`,
         );
       }
       continue;
@@ -622,7 +633,7 @@ export async function recoverPendingTransactions(): Promise<RecoveryStatus> {
 
     status.canProceed = false;
     status.errors.push(
-      `Recovery requires manual attention: final=${journal.finalPath} backup=${journal.backupPath} journal=${journalPath}`
+      `Recovery requires manual attention: final=${journal.finalPath} backup=${journal.backupPath} journal=${journalPath}`,
     );
   }
 

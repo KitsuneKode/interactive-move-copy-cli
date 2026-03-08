@@ -60,7 +60,7 @@ cpi .            # copy files from current directory
 
 ### Flags
 
-```
+```text
 -h, --help      Show help
 -v, --version   Show version
 ```
@@ -69,7 +69,7 @@ cpi .            # copy files from current directory
 
 ### Flow
 
-```
+```text
 mvi [dir]
   |
   v
@@ -107,7 +107,7 @@ Execution
 ### Keybindings — Source Selection
 
 | Key | Action |
-|-----|--------|
+| --- | --- |
 | Up/Down | Navigate file list |
 | Left | Go to parent / delete search char |
 | Right | Open directory |
@@ -123,7 +123,7 @@ Execution
 ### Keybindings — Destination Picker
 
 | Key | Action |
-|-----|--------|
+| --- | --- |
 | Up/Down | Navigate directories |
 | Left | Go to parent |
 | Right | Open directory |
@@ -174,7 +174,7 @@ The TUI requires an interactive terminal. `--help` and `--version` work in non-i
 
 ## Project Structure
 
-```
+```text
 src/
   bin/mvi.ts, cpi.ts      Entry points (shebang scripts)
   cli.ts                   Arg parsing, orchestration

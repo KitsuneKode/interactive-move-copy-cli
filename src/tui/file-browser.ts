@@ -1,11 +1,11 @@
-import { join, dirname, resolve, basename } from "node:path";
-import type { FileEntry, SelectionState, NavigationEntry, OperationMode } from "../core/types.ts";
+import { basename, dirname, resolve } from "node:path";
 import { ANSI, COLORS } from "../core/constants.ts";
-import { readKey, getTerminalSize } from "./terminal.ts";
-import { render, getViewportHeight, stripAnsi } from "./renderer.ts";
-import { listDirectory, invalidateCache } from "../fs/file-info.ts";
-import { fuzzyMatch, highlightMatch } from "./fuzzy.ts";
+import type { FileEntry, NavigationEntry, OperationMode, SelectionState } from "../core/types.ts";
+import { invalidateCache, listDirectory } from "../fs/file-info.ts";
 import { padColumn } from "../fs/format.ts";
+import { fuzzyMatch, highlightMatch } from "./fuzzy.ts";
+import { getViewportHeight, render, stripAnsi } from "./renderer.ts";
+import { getTerminalSize, readKey } from "./terminal.ts";
 
 interface BrowserResult {
   selected: string[];
@@ -57,7 +57,11 @@ export async function fileBrowser(startDir: string, mode: OperationMode): Promis
           state.cursor = 0;
           state.scrollOffset = 0;
         } else {
-          return { selected: [], currentDir: state.currentDir, cancelled: true };
+          return {
+            selected: [],
+            currentDir: state.currentDir,
+            cancelled: true,
+          };
         }
         break;
 
@@ -88,12 +92,12 @@ export async function fileBrowser(startDir: string, mode: OperationMode): Promis
       case "space": {
         if (state.cursor === 0) break; // ".." row
         const entry = displayEntries[state.cursor - 1];
-        if (entry && entry.readable) {
-          if (state.selected.has(entry.path)) {
-            state.selected.delete(entry.path);
-          } else {
-            state.selected.add(entry.path);
-          }
+        if (!entry?.readable) break;
+
+        if (state.selected.has(entry.path)) {
+          state.selected.delete(entry.path);
+        } else {
+          state.selected.add(entry.path);
         }
         if (state.cursor < maxCursor) state.cursor++;
         break;
@@ -151,7 +155,11 @@ export async function fileBrowser(startDir: string, mode: OperationMode): Promis
 function goToParent(state: SelectionState, navStack: NavigationEntry[]): void {
   const parent = dirname(state.currentDir);
   if (parent !== state.currentDir) {
-    navStack.push({ dir: state.currentDir, cursor: state.cursor, scrollOffset: state.scrollOffset });
+    navStack.push({
+      dir: state.currentDir,
+      cursor: state.cursor,
+      scrollOffset: state.scrollOffset,
+    });
     state.currentDir = parent;
     state.cursor = 0;
     state.scrollOffset = 0;
@@ -172,7 +180,11 @@ function openCurrentEntry(
 
   const entry = entries[state.cursor - 1];
   if (entry?.isDirectory && entry.readable) {
-    navStack.push({ dir: state.currentDir, cursor: state.cursor, scrollOffset: state.scrollOffset });
+    navStack.push({
+      dir: state.currentDir,
+      cursor: state.cursor,
+      scrollOffset: state.scrollOffset,
+    });
     state.currentDir = entry.path;
     state.cursor = 0;
     state.scrollOffset = 0;
@@ -206,7 +218,7 @@ function renderBrowser(
   mode: OperationMode,
   showSummary: boolean,
 ): void {
-  const { cols, rows } = getTerminalSize();
+  const { cols } = getTerminalSize();
   const viewportHeight = getViewportHeight();
   const modeLabel = mode === "move" ? "MOVE" : "COPY";
   const dirDisplay = state.currentDir.replace(process.env.HOME || "", "~");
@@ -215,7 +227,7 @@ function renderBrowser(
 
   // Header
   lines.push(
-    `${COLORS.header} ${modeLabel}: Select source files ${ANSI.reset}${COLORS.dim} ${dirDisplay} ${ANSI.reset}`
+    `${COLORS.header} ${modeLabel}: Select source files ${ANSI.reset}${COLORS.dim} ${dirDisplay} ${ANSI.reset}`,
   );
 
   // Search bar
@@ -227,7 +239,7 @@ function renderBrowser(
   // Column headers
   const nameWidth = Math.max(cols - 30, 20);
   lines.push(
-    ` ${COLORS.dim}${padColumn("Name", nameWidth)}${"Size".padStart(10)}  ${"Modified".padStart(14)}${ANSI.reset}`
+    ` ${COLORS.dim}${padColumn("Name", nameWidth)}${"Size".padStart(10)}  ${"Modified".padStart(14)}${ANSI.reset}`,
   );
 
   // Separator
@@ -240,8 +252,7 @@ function renderBrowser(
   const dotdotLine = formatDotDotRow(state.cursor === 0, nameWidth);
   allRows.push(dotdotLine);
 
-  for (let i = 0; i < entries.length; i++) {
-    const entry = entries[i]!;
+  for (const [i, entry] of entries.entries()) {
     const isCursor = state.cursor === i + 1;
     const isSelected = state.selected.has(entry.path);
     allRows.push(formatEntryRow(entry, isCursor, isSelected, state.searchQuery, nameWidth));
@@ -263,7 +274,7 @@ function renderBrowser(
   const matchCount = entries.length;
   lines.push(
     ` ${COLORS.status}${selectedCount} selected${ANSI.reset} | ` +
-    `${matchCount} matching | ${totalCount} total`
+      `${matchCount} matching | ${totalCount} total`,
   );
 
   // Keybind hints or summary
@@ -272,7 +283,7 @@ function renderBrowser(
     lines.push(` ${COLORS.dim}Selected: ${names}${ANSI.reset}`);
   } else {
     lines.push(
-      ` ${COLORS.hint}Left:parent Right:open Space:toggle Enter:confirm Esc:quit${ANSI.reset}`
+      ` ${COLORS.hint}Left:parent Right:open Space:toggle Enter:confirm Esc:quit${ANSI.reset}`,
     );
   }
 

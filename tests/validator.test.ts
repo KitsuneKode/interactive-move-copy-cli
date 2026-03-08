@@ -1,8 +1,8 @@
-import { test, expect, describe, beforeAll, afterAll } from "bun:test";
-import { validateOperation } from "../src/ops/validator.ts";
-import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
-import { join } from "node:path";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { validateOperation } from "../src/ops/validator.ts";
 
 let testDir: string;
 let srcDir: string;
@@ -24,11 +24,7 @@ afterAll(async () => {
 
 describe("validateOperation", () => {
   test("valid operation passes", async () => {
-    const result = await validateOperation(
-      [join(srcDir, "file1.txt")],
-      destDir,
-      "copy",
-    );
+    const result = await validateOperation([join(srcDir, "file1.txt")], destDir, "copy");
     expect(result.valid).toBe(true);
     expect(result.errors).toEqual([]);
   });
@@ -40,17 +36,11 @@ describe("validateOperation", () => {
       "copy",
     );
     expect(result.valid).toBe(false);
-    expect(result.errors).toEqual([
-      `Destination "${join(testDir, "nonexistent")}" does not exist`,
-    ]);
+    expect(result.errors).toEqual([`Destination "${join(testDir, "nonexistent")}" does not exist`]);
   });
 
   test("detects moving file into same directory", async () => {
-    const result = await validateOperation(
-      [join(srcDir, "file1.txt")],
-      srcDir,
-      "move",
-    );
+    const result = await validateOperation([join(srcDir, "file1.txt")], srcDir, "move");
     expect(result.valid).toBe(false);
     expect(result.errors[0]).toContain("already in the destination");
   });
@@ -58,22 +48,14 @@ describe("validateOperation", () => {
   test("detects circular move (parent into child)", async () => {
     const childDir = join(srcDir, "child");
     await mkdir(childDir, { recursive: true });
-    const result = await validateOperation(
-      [srcDir],
-      childDir,
-      "move",
-    );
+    const result = await validateOperation([srcDir], childDir, "move");
     expect(result.valid).toBe(false);
     expect(result.errors[0]).toContain("into itself");
   });
 
   test("detects name conflicts", async () => {
     await writeFile(join(destDir, "file1.txt"), "existing");
-    const result = await validateOperation(
-      [join(srcDir, "file1.txt")],
-      destDir,
-      "copy",
-    );
+    const result = await validateOperation([join(srcDir, "file1.txt")], destDir, "copy");
     expect(result.conflicts).toContain("file1.txt");
   });
 
@@ -89,7 +71,9 @@ describe("validateOperation", () => {
     );
 
     expect(result.valid).toBe(false);
-    expect(result.errors.some((error) => error.includes('would both write to "file1.txt"'))).toBe(true);
+    expect(result.errors.some((error) => error.includes('would both write to "file1.txt"'))).toBe(
+      true,
+    );
   });
 
   test("detects parent-child source overlap", async () => {
@@ -98,11 +82,7 @@ describe("validateOperation", () => {
     await mkdir(nestedDir, { recursive: true });
     await writeFile(nestedFile, "child");
 
-    const result = await validateOperation(
-      [nestedDir, nestedFile],
-      destDir,
-      "copy",
-    );
+    const result = await validateOperation([nestedDir, nestedFile], destDir, "copy");
 
     expect(result.valid).toBe(false);
     expect(result.errors.some((error) => error.includes("nested path"))).toBe(true);

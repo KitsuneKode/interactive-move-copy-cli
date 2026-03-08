@@ -1,14 +1,20 @@
-import { resolve } from "node:path";
 import { stat } from "node:fs/promises";
-import type { OperationMode } from "./core/types.ts";
+import { basename, resolve } from "node:path";
 import { ANSI, COLORS } from "./core/constants.ts";
-import { enterRawMode, exitRawMode, enterAltScreen, exitAltScreen, readKey, cleanup } from "./tui/terminal.ts";
-import { clearPreviousFrame } from "./tui/renderer.ts";
+import type { OperationMode } from "./core/types.ts";
+import { executeOperation, printSummary, recoverPendingOperations } from "./ops/executor.ts";
+import { validateOperation } from "./ops/validator.ts";
 import { fileBrowser } from "./tui/file-browser.ts";
 import { folderPicker } from "./tui/folder-picker.ts";
-import { validateOperation } from "./ops/validator.ts";
-import { executeOperation, printSummary, recoverPendingOperations } from "./ops/executor.ts";
-import { basename } from "node:path";
+import { clearPreviousFrame } from "./tui/renderer.ts";
+import {
+  cleanup,
+  enterAltScreen,
+  enterRawMode,
+  exitAltScreen,
+  exitRawMode,
+  readKey,
+} from "./tui/terminal.ts";
 
 const VERSION = "1.0.0";
 
@@ -124,7 +130,11 @@ export async function run(mode: OperationMode): Promise<void> {
   }
 
   // Phase 3: Validate
-  const validation = await validateOperation(browserResult.selected, pickerResult.destination, mode);
+  const validation = await validateOperation(
+    browserResult.selected,
+    pickerResult.destination,
+    mode,
+  );
 
   if (!validation.valid) {
     cleanup();
@@ -141,7 +151,7 @@ export async function run(mode: OperationMode): Promise<void> {
     exitAltScreen();
     exitRawMode();
 
-    const verb = mode === "move" ? "Move" : "Copy";
+    // const verb = mode === "move" ? "Move" : "Copy";
     console.log(`\n${COLORS.search}Name conflicts at destination:${ANSI.reset}`);
     for (const name of validation.conflicts) {
       console.log(`  - ${name}`);
@@ -157,9 +167,7 @@ export async function run(mode: OperationMode): Promise<void> {
     } else if (key.char === "s" || key.char === "S") {
       // Remove conflicting files from selection
       const conflictSet = new Set(validation.conflicts);
-      const filtered = browserResult.selected.filter(
-        (s) => !conflictSet.has(basename(s))
-      );
+      const filtered = browserResult.selected.filter((s) => !conflictSet.has(basename(s)));
       if (filtered.length === 0) {
         console.log("\nAll files conflict. Aborted.");
         return;
@@ -179,7 +187,7 @@ export async function run(mode: OperationMode): Promise<void> {
   const verb = mode === "move" ? "Move" : "Copy";
   const destDisplay = pickerResult.destination.replace(process.env.HOME || "", "~");
   console.log(
-    `\n${verb} ${browserResult.selected.length} file${browserResult.selected.length !== 1 ? "s" : ""} to ${COLORS.header}${destDisplay}${ANSI.reset}?`
+    `\n${verb} ${browserResult.selected.length} file${browserResult.selected.length !== 1 ? "s" : ""} to ${COLORS.header}${destDisplay}${ANSI.reset}?`,
   );
   for (const s of browserResult.selected) {
     console.log(`  ${basename(s)}`);

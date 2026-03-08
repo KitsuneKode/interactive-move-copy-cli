@@ -1,5 +1,5 @@
-import { test, expect, describe } from "bun:test";
-import { formatSize, formatDate, padColumn } from "../src/fs/format.ts";
+import { describe, expect, test } from "bun:test";
+import { formatDate, formatSize, padColumn } from "../src/fs/format.ts";
 
 describe("formatSize", () => {
   test("0 bytes", () => {

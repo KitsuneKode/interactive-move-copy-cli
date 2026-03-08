@@ -1,8 +1,8 @@
-import { test, expect, describe, beforeEach, afterEach } from "bun:test";
-import { executeOperation } from "../src/ops/executor.ts";
-import { mkdtemp, mkdir, writeFile, readFile, rm, stat, readdir } from "node:fs/promises";
-import { join } from "node:path";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { executeOperation } from "../src/ops/executor.ts";
 
 let testRoot: string;
 
@@ -28,13 +28,15 @@ describe("move operation", () => {
 
     const results = await executeOperation([join(src, "data.txt")], dest, "move");
 
-    expect(results[0]!.success).toBe(true);
-    expect(results[0]!.strategy).toBe("rename");
+    expect(results[0]?.success).toBe(true);
+    expect(results[0]?.strategy).toBe("rename");
 
     const movedContent = await readFile(join(dest, "data.txt"), "utf8");
     expect(movedContent).toBe(content);
 
-    const exists = await stat(join(src, "data.txt")).then(() => true).catch(() => false);
+    const exists = await stat(join(src, "data.txt"))
+      .then(() => true)
+      .catch(() => false);
     expect(exists).toBe(false);
   });
 
@@ -51,12 +53,14 @@ describe("move operation", () => {
     await writeFile(join(dir, "sub", "b.txt"), "bbb");
 
     const results = await executeOperation([dir], dest, "move");
-    expect(results[0]!.success).toBe(true);
+    expect(results[0]?.success).toBe(true);
 
     expect(await readFile(join(dest, "mydir", "a.txt"), "utf8")).toBe("aaa");
     expect(await readFile(join(dest, "mydir", "sub", "b.txt"), "utf8")).toBe("bbb");
 
-    const exists = await stat(dir).then(() => true).catch(() => false);
+    const exists = await stat(dir)
+      .then(() => true)
+      .catch(() => false);
     expect(exists).toBe(false);
   });
 
@@ -71,8 +75,8 @@ describe("move operation", () => {
 
     const results = await executeOperation([join(src, "file.txt")], dest, "move", false);
 
-    expect(results[0]!.success).toBe(false);
-    expect(results[0]!.error).toContain("already exists");
+    expect(results[0]?.success).toBe(false);
+    expect(results[0]?.error).toContain("already exists");
     expect(await readFile(join(dest, "file.txt"), "utf8")).toBe("original content");
   });
 
@@ -91,10 +95,14 @@ describe("move operation", () => {
 
     const results = await executeOperation([sourceDir], destRoot, "move", true);
 
-    expect(results[0]!.success).toBe(true);
+    expect(results[0]?.success).toBe(true);
     expect(await readFile(join(destRoot, "project", "new.txt"), "utf8")).toBe("new");
-    const oldExists = await stat(join(destRoot, "project", "old.txt")).then(() => true).catch(() => false);
-    const nestedExists = await stat(join(destRoot, "project", "project", "new.txt")).then(() => true).catch(() => false);
+    const oldExists = await stat(join(destRoot, "project", "old.txt"))
+      .then(() => true)
+      .catch(() => false);
+    const nestedExists = await stat(join(destRoot, "project", "project", "new.txt"))
+      .then(() => true)
+      .catch(() => false);
     expect(oldExists).toBe(false);
     expect(nestedExists).toBe(false);
   });
@@ -110,8 +118,8 @@ describe("move operation", () => {
     await rm(filePath);
 
     const results = await executeOperation([filePath], dest, "move");
-    expect(results[0]!.success).toBe(false);
-    expect(results[0]!.error).toContain("no longer exists");
+    expect(results[0]?.success).toBe(false);
+    expect(results[0]?.error).toContain("no longer exists");
 
     const destFiles = await readdir(dest);
     expect(destFiles.length).toBe(0);
@@ -129,10 +137,10 @@ describe("copy operation", () => {
     await writeFile(join(src, "file.txt"), content);
 
     const results = await executeOperation([join(src, "file.txt")], dest, "copy");
-    expect(results[0]!.success).toBe(true);
-    expect(results[0]!.strategy).toBe("verified_copy");
-    expect(results[0]!.verified).toBe(true);
-    expect(results[0]!.bytesVerified).toBe(content.length);
+    expect(results[0]?.success).toBe(true);
+    expect(results[0]?.strategy).toBe("verified_copy");
+    expect(results[0]?.verified).toBe(true);
+    expect(results[0]?.bytesVerified).toBe(content.length);
 
     const originalContent = await readFile(join(src, "file.txt"), "utf8");
     const copyContent = await readFile(join(dest, "file.txt"), "utf8");
@@ -153,7 +161,7 @@ describe("copy operation", () => {
     await writeFile(join(dir, "nested", "y.txt"), "yyy");
 
     const results = await executeOperation([dir], dest, "copy");
-    expect(results[0]!.success).toBe(true);
+    expect(results[0]?.success).toBe(true);
 
     expect(await readFile(join(dest, "project", "x.txt"), "utf8")).toBe("xxx");
     expect(await readFile(join(dest, "project", "nested", "y.txt"), "utf8")).toBe("yyy");
@@ -177,10 +185,14 @@ describe("copy operation", () => {
 
     const results = await executeOperation([sourceDir], destRoot, "copy", true);
 
-    expect(results[0]!.success).toBe(true);
+    expect(results[0]?.success).toBe(true);
     expect(await readFile(join(destRoot, "project", "new.txt"), "utf8")).toBe("new");
-    const oldExists = await stat(join(destRoot, "project", "old.txt")).then(() => true).catch(() => false);
-    const nestedExists = await stat(join(destRoot, "project", "project", "new.txt")).then(() => true).catch(() => false);
+    const oldExists = await stat(join(destRoot, "project", "old.txt"))
+      .then(() => true)
+      .catch(() => false);
+    const nestedExists = await stat(join(destRoot, "project", "project", "new.txt"))
+      .then(() => true)
+      .catch(() => false);
     expect(oldExists).toBe(false);
     expect(nestedExists).toBe(false);
   });
@@ -195,7 +207,7 @@ describe("copy operation", () => {
     await writeFile(join(dest, "file.txt"), "existing");
 
     const results = await executeOperation([join(src, "file.txt")], dest, "copy", false);
-    expect(results[0]!.success).toBe(false);
+    expect(results[0]?.success).toBe(false);
 
     const destContent = await readFile(join(dest, "file.txt"), "utf8");
     expect(destContent).toBe("existing");
@@ -236,9 +248,9 @@ describe("copy operation", () => {
     await Bun.write(join(src, "data.bin"), binaryData);
 
     const results = await executeOperation([join(src, "data.bin")], dest, "copy");
-    expect(results[0]!.success).toBe(true);
-    expect(results[0]!.verified).toBe(true);
-    expect(results[0]!.bytesVerified).toBe(binaryData.length);
+    expect(results[0]?.success).toBe(true);
+    expect(results[0]?.verified).toBe(true);
+    expect(results[0]?.bytesVerified).toBe(binaryData.length);
 
     const copied = new Uint8Array(await Bun.file(join(dest, "data.bin")).arrayBuffer());
     expect(copied.length).toBe(binaryData.length);

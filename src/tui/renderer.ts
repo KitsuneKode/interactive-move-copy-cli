@@ -15,8 +15,10 @@ export function render(lines: string[]): void {
     const msg = "Terminal too small. Resize to at least 40x10.";
     process.stdout.write(
       ANSI.clearScreen +
-      ANSI.moveTo(Math.floor(rows / 2), Math.max(1, Math.floor((cols - msg.length) / 2))) +
-      COLORS.error + msg + ANSI.reset
+        ANSI.moveTo(Math.floor(rows / 2), Math.max(1, Math.floor((cols - msg.length) / 2))) +
+        COLORS.error +
+        msg +
+        ANSI.reset,
     );
     previousLines = [];
     return;
@@ -65,11 +67,25 @@ export function truncate(str: string, maxLen: number): string {
     visible++;
     i++;
   }
-  return result + ANSI.reset + "\u2026";
+  return `${result + ANSI.reset}\u2026`;
 }
 
 export function stripAnsi(str: string): string {
-  return str.replace(/\x1b\[[0-9;]*m/g, "");
+  let result = "";
+
+  for (let i = 0; i < str.length; i++) {
+    if (str[i] === "\u001b" && str[i + 1] === "[") {
+      const end = str.indexOf("m", i);
+      if (end !== -1) {
+        i = end;
+        continue;
+      }
+    }
+
+    result += str[i];
+  }
+
+  return result;
 }
 
 export function padRight(str: string, width: number): string {

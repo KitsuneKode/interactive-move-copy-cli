@@ -1,8 +1,9 @@
-import { readdir, lstat } from "node:fs/promises";
+import type { Dirent, Stats } from "node:fs";
+import { lstat, readdir } from "node:fs/promises";
 import { join } from "node:path";
 import type { FileEntry } from "../core/types.ts";
+import { formatDate, formatSize } from "./format.ts";
 import { getIcon } from "./icons.ts";
-import { formatSize, formatDate } from "./format.ts";
 
 const cache = new Map<string, { entries: FileEntry[]; timestamp: number }>();
 const CACHE_TTL = 2000; // 2 seconds
@@ -13,7 +14,7 @@ export async function listDirectory(dirPath: string): Promise<FileEntry[]> {
     return cached.entries;
   }
 
-  let dirents;
+  let dirents: Dirent[];
   try {
     dirents = await readdir(dirPath, { withFileTypes: true });
   } catch {
@@ -24,7 +25,7 @@ export async function listDirectory(dirPath: string): Promise<FileEntry[]> {
 
   for (const dirent of dirents) {
     const fullPath = join(dirPath, dirent.name);
-    let stat;
+    let stat: Stats | null;
     let readable = true;
     try {
       stat = await lstat(fullPath);

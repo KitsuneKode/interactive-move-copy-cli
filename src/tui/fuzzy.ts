@@ -8,8 +8,8 @@ function isUpperCase(ch: string): boolean {
 
 function isWordBoundary(str: string, index: number): boolean {
   if (index === 0) return true;
-  const prev = str[index - 1]!;
-  const curr = str[index]!;
+  const prev = str.charAt(index - 1);
+  const curr = str.charAt(index);
   if (WORD_SEPARATORS.has(prev)) return true;
   if (!isUpperCase(prev) && isUpperCase(curr)) return true;
   return false;
@@ -38,7 +38,7 @@ export function fuzzyMatch(pattern: string, text: string): FuzzyResult {
       // Consecutive bonus
       if (lastMatchIdx === i - 1) score += 5;
       // Gap penalty
-      else if (lastMatchIdx >= 0) score -= (i - lastMatchIdx - 1);
+      else if (lastMatchIdx >= 0) score -= i - lastMatchIdx - 1;
 
       lastMatchIdx = i;
       patIdx++;
@@ -50,14 +50,20 @@ export function fuzzyMatch(pattern: string, text: string): FuzzyResult {
   }
 
   // Penalize unmatched leading characters
-  if (positions.length > 0) {
-    score -= positions[0]! * 3;
+  const firstPosition = positions[0];
+  if (firstPosition !== undefined) {
+    score -= firstPosition * 3;
   }
 
   return { matches: true, score, positions };
 }
 
-export function highlightMatch(text: string, positions: number[], highlightStart: string, highlightEnd: string): string {
+export function highlightMatch(
+  text: string,
+  positions: number[],
+  highlightStart: string,
+  highlightEnd: string,
+): string {
   if (positions.length === 0) return text;
 
   const posSet = new Set(positions);

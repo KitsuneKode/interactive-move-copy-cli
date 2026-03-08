@@ -1,4 +1,4 @@
-import { test, expect, describe } from "bun:test";
+import { describe, expect, test } from "bun:test";
 
 describe("cli runtime", () => {
   test("interactive mode refuses to start without a TTY", async () => {

@@ -62,7 +62,8 @@ export function parseKeyEvent(data: string): KeyEvent {
   if (data === KEYS.RIGHT) return { name: "right", raw, ctrl: false, shift: false, char: "" };
   if (data === KEYS.ENTER) return { name: "enter", raw, ctrl: false, shift: false, char: "" };
   if (data === KEYS.SPACE) return { name: "space", raw, ctrl: false, shift: false, char: " " };
-  if (data === KEYS.BACKSPACE) return { name: "backspace", raw, ctrl: false, shift: false, char: "" };
+  if (data === KEYS.BACKSPACE)
+    return { name: "backspace", raw, ctrl: false, shift: false, char: "" };
   if (data === KEYS.TAB) return { name: "tab", raw, ctrl: false, shift: false, char: "" };
   if (data === KEYS.ESCAPE) return { name: "escape", raw, ctrl: false, shift: false, char: "" };
 

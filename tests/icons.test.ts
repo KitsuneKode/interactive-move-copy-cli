@@ -1,4 +1,4 @@
-import { test, expect, describe } from "bun:test";
+import { describe, expect, test } from "bun:test";
 import { getIcon } from "../src/fs/icons.ts";
 
 describe("getIcon", () => {

@@ -1,4 +1,4 @@
-import { test, expect, describe } from "bun:test";
+import { describe, expect, test } from "bun:test";
 import { fuzzyMatch, highlightMatch } from "../src/tui/fuzzy.ts";
 
 describe("fuzzyMatch", () => {
@@ -45,8 +45,8 @@ describe("fuzzyMatch", () => {
 
   test("word boundary bonus", () => {
     // Compare two matches at similar positions — word boundary should score higher
-    const boundaryMatch = fuzzyMatch("j", "aa.json");  // 'j' at index 3, word boundary
-    const midMatch = fuzzyMatch("s", "aa.json");       // 's' at index 4, not boundary
+    const boundaryMatch = fuzzyMatch("j", "aa.json"); // 'j' at index 3, word boundary
+    const midMatch = fuzzyMatch("s", "aa.json"); // 's' at index 4, not boundary
     expect(boundaryMatch.score).toBeGreaterThan(midMatch.score);
   });
 

@@ -80,7 +80,7 @@ export async function validateOperation(
     const existingSource = destinationNames.get(name);
     if (existingSource && existingSource !== sourceResolved) {
       errors.push(
-        `Selected sources "${basename(existingSource)}" and "${basename(sourceResolved)}" would both write to "${name}"`
+        `Selected sources "${basename(existingSource)}" and "${basename(sourceResolved)}" would both write to "${name}"`,
       );
     } else {
       destinationNames.set(name, sourceResolved);
@@ -101,14 +101,22 @@ export async function validateOperation(
 
   const uniqueSources = [...resolvedSources.values()].sort((a, b) => a.localeCompare(b));
   for (let i = 0; i < uniqueSources.length; i++) {
-    const current = uniqueSources[i]!;
+    const current = uniqueSources[i];
+    if (current === undefined) {
+      continue;
+    }
+
     for (let j = i + 1; j < uniqueSources.length; j++) {
-      const other = uniqueSources[j]!;
+      const other = uniqueSources[j];
+      if (other === undefined) {
+        continue;
+      }
+
       if (current === other) continue;
 
       if (isNestedPath(current, other) || isNestedPath(other, current)) {
         errors.push(
-          `Cannot operate on both "${basename(current)}" and its nested path "${basename(other)}" in the same run`
+          `Cannot operate on both "${basename(current)}" and its nested path "${basename(other)}" in the same run`,
         );
       }
     }
