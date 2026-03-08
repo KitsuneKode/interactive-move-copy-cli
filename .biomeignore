@@ -1,0 +1,6 @@
+node_modules
+assets/*.db
+.tmp-data
+.tmp-data/**
+.tmp-config
+.tmp-config/**

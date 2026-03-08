@@ -1,0 +1,9 @@
+{
+  "config": {
+    "default": true,
+    "MD013": false,
+    "MD029": false,
+    "MD032": false
+  },
+  "ignores": ["node_modules/**", ".worktrees/**", "CLAUDE.md"]
+}

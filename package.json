@@ -1,33 +1,57 @@
 {
-	"name": "interactive-move-copy-cli",
-	"version": "1.0.0",
-	"module": "src/cli.ts",
-	"type": "module",
-	"private": true,
-	"engines": {
-		"bun": ">=1.0.0"
-	},
-	"bin": {
-		"mvi": "./src/bin/mvi.ts",
-		"cpi": "./src/bin/cpi.ts"
-	},
-	"scripts": {
-		"clean": "rm -rf dist",
-		"build:js:mvi": "bun build --target=bun --outfile dist/mvi.js src/bin/mvi-build.ts",
-		"build:js:cpi": "bun build --target=bun --outfile dist/cpi.js src/bin/cpi-build.ts",
-		"build": "bun run clean && bun run build:js:mvi && bun run build:js:cpi",
-		"build:compile:mvi": "bun build --compile --target=bun --outfile dist/mvi src/bin/mvi-build.ts",
-		"build:compile:cpi": "bun build --compile --target=bun --outfile dist/cpi src/bin/cpi-build.ts",
-		"build:compile": "bun run build:compile:mvi && bun run build:compile:cpi",
-		"test": "bun test",
-		"check": "bun run test",
-		"link:global": "bun run build && bun link",
-		"unlink:global": "bun unlink",
-		"relink:global": "bun unlink && bun run link:global",
-		"prepublishOnly": "bun run test && bun run build"
-	},
-	"devDependencies": {
-		"@types/bun": "latest",
-		"typescript": "^5"
-	}
+  "name": "interactive-move-copy-cli",
+  "version": "1.0.0",
+  "module": "src/cli.ts",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "bun": ">=1.0.0"
+  },
+  "bin": {
+    "mvi": "./src/bin/mvi.ts",
+    "cpi": "./src/bin/cpi.ts"
+  },
+  "scripts": {
+    "clean": "rm -rf dist",
+    "build:js:mvi": "bun build --target=bun --outfile dist/mvi.js src/bin/mvi-build.ts",
+    "build:js:cpi": "bun build --target=bun --outfile dist/cpi.js src/bin/cpi-build.ts",
+    "build": "bun run clean && bun run build:js:mvi && bun run build:js:cpi",
+    "build:compile:mvi": "bun build --compile --target=bun --outfile dist/mvi src/bin/mvi-build.ts",
+    "build:compile:cpi": "bun build --compile --target=bun --outfile dist/cpi src/bin/cpi-build.ts",
+    "build:compile": "bun run build:compile:mvi && bun run build:compile:cpi",
+    "test": "bun test",
+    "check": "bun run typecheck && bun run lint && bun run lint:md && bun test",
+    "link:global": "bun run build && bun link",
+    "unlink:global": "bun unlink",
+    "relink:global": "bun unlink && bun run link:global",
+    "prepublishOnly": "bun run test && bun run build",
+    "lint-staged": "lint-staged",
+    "commitlint": "commitlint --edit",
+    "prepare": "[ -d .git ] && husky || echo 'Skipping husky install (no .git directory)'",
+    "typecheck": "bunx tsc --noEmit",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "lint:md": "markdownlint-cli2 \"**/*.md\" \"#node_modules\" \"#.worktrees\"",
+    "lint:md:fix": "markdownlint-cli2 --fix \"**/*.md\" \"#node_modules\" \"#.worktrees\""
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^20.4.3",
+    "@commitlint/config-conventional": "^20.4.3",
+    "@types/bun": "latest",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.3.2",
+    "@biomejs/biome": "^2.4.6",
+    "markdownlint-cli2": "^0.21.0"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,jsx,mjs,cjs,json}": [
+      "biome check --write --no-errors-on-unmatched"
+    ],
+    "*.md": [
+      "markdownlint-cli2 --fix"
+    ]
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  }
 }
