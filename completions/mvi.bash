@@ -1,13 +1,17 @@
 #!/usr/bin/env bash
-# Bash completion for mvi and cpi
+# Bash completion for mvi, cpi, and rmi
 
 _mvi_completion() {
     local cur="${COMP_WORDS[COMP_CWORD]}"
-    local prev="${COMP_WORDS[COMP_CWORD-1]}"
+    local cmd="${COMP_WORDS[0]}"
 
     case "$cur" in
         -*)
-            COMPREPLY=($(compgen -W "--help --version -h -v" -- "$cur"))
+            if [[ "$cmd" == "rmi" ]]; then
+                COMPREPLY=($(compgen -W "--help --version --trash --hard-delete -h -v" -- "$cur"))
+            else
+                COMPREPLY=($(compgen -W "--help --version -h -v" -- "$cur"))
+            fi
             return
             ;;
     esac
@@ -18,3 +22,4 @@ _mvi_completion() {
 
 complete -o dirnames -F _mvi_completion mvi
 complete -o dirnames -F _mvi_completion cpi
+complete -o dirnames -F _mvi_completion rmi

@@ -1,8 +1,8 @@
-# mvi / cpi
+# mvi / cpi / rmi
 
-Interactive terminal file move and copy tools. Browse files visually, multi-select with fuzzy search, pick a destination folder, and execute without typing paths.
+Interactive terminal file move, copy, and remove tools. Browse files visually, multi-select with fuzzy search, pick a destination folder when needed, and execute without typing paths.
 
-`mvi` moves files. `cpi` copies files. Same interface, same keybindings.
+`mvi` moves files. `cpi` copies files. `rmi` removes files by moving them to trash by default, with optional hard delete. The commands share the same source-selection interface and keybindings.
 
 You can select both files and directories. Selections persist while you navigate, so you can collect items from multiple directories before choosing the destination.
 
@@ -16,6 +16,7 @@ You can select both files and directories. Selections persist while you navigate
 - Pre-flight validation (permissions, conflicts, circular moves)
 - Explicit confirmation before any operation (`Y/n`)
 - No-clobber by default — never overwrites without asking
+- Interactive remove command with trash-by-default safety
 - Verified copy pipeline for copy and cross-device move operations
 - Recovery journal for interrupted overwrite replacement
 - Clean terminal restore on exit, Ctrl+C, or crash
@@ -35,16 +36,18 @@ bun install
 bun run link:global
 ```
 
-This installs `mvi` and `cpi` globally.
+This installs `mvi`, `cpi`, and `rmi` globally.
 
 ### Useful Scripts
 
 ```sh
 bun run build           # bundle CLI entrypoints into dist/
 bun run build:compile   # build standalone executables into dist/
+bun run config:init     # create or normalize the shared config file
+bun run config:edit     # open the shared config in $VISUAL / $EDITOR
 bun run test            # run the full test suite
 bun run check           # alias for the current verification suite
-bun run link:global     # build and link mvi/cpi globally
+bun run link:global     # build and link mvi/cpi/rmi globally
 bun run unlink:global   # remove the global link
 bun run relink:global   # refresh the global link after changes
 bun run clean           # remove dist/
@@ -56,6 +59,8 @@ bun run clean           # remove dist/
 mvi              # browse current directory, move selected files
 mvi ~/Downloads  # start in ~/Downloads
 cpi .            # copy files from current directory
+rmi              # move selected files to trash
+rmi --hard-delete .  # permanently delete selected files from current directory
 ```
 
 ### Flags
@@ -64,6 +69,43 @@ cpi .            # copy files from current directory
 -h, --help      Show help
 -v, --version   Show version
 ```
+
+### `rmi` Delete Mode Flags
+
+```text
+--trash         Move items to trash (default)
+--hard-delete   Permanently delete items
+```
+
+### `rmi` Config
+
+All commands share one config file:
+
+```text
+${XDG_CONFIG_HOME:-~/.config}/interactive-move-copy-cli/config.json
+```
+
+`bun run link:global` runs `config:init` first, so the file is created automatically if it does not exist yet. You can also run `bun run config:init` manually to create or normalize it, and `bun run config:edit` to open it in `$VISUAL`, then `$EDITOR`, then `nano`.
+
+The repository ships an example at [config.example.json](/home/kitsunekode/Projects/cli-tools/interactive-move-copy-cli/config.example.json).
+
+Default config:
+
+```json
+{
+  "mvi": {},
+  "cpi": {},
+  "rmi": {
+    "mode": "trash"
+  }
+}
+```
+
+Current keys:
+
+- `mvi`: reserved for future move-specific settings
+- `cpi`: reserved for future copy-specific settings
+- `rmi.mode`: default delete behavior, either `"trash"` or `"hard-delete"`
 
 ## How It Works
 
@@ -75,14 +117,14 @@ mvi [dir]
   v
 File Browser (alt screen)
   - Browse files/dirs in current directory
-  - Type to fuzzy-search, Space to select, Enter to open dirs
+  - Type to fuzzy-search, Space to select, Right to open dirs
   - Press Enter with selections to confirm source files/directories
   |
   v
 Folder Picker (alt screen)
   - Browse directories only
-  - Navigate into subdirs with Enter
-  - Press 'c' to confirm current directory as destination
+  - Navigate into subdirs with Right
+  - Press Enter or 'c' to confirm current directory as destination
   |
   v
 Validation (pre-flight checks)
@@ -104,6 +146,32 @@ Execution
   - Prints summary: N moved/copied, M failed
 ```
 
+```text
+rmi [dir]
+  |
+  v
+File Browser (alt screen)
+  - Browse files/dirs in current directory
+  - Type to fuzzy-search, Space to select, Right to open dirs
+  - Press Enter with selections to confirm source files/directories
+  |
+  v
+Validation (pre-flight checks)
+  - Selected sources still exist?
+  - Not deleting a parent and child in the same run?
+  |
+  v
+Confirmation Prompt
+  - Trash by default, hard delete only when explicitly requested
+  - Requires explicit 'y' to proceed (default is No)
+  |
+  v
+Execution
+  - Same-device trash uses rename into the trash store when possible
+  - Cross-device trash uses verified copy-then-delete
+  - Hard delete permanently removes the selected paths
+```
+
 ### Keybindings — Source Selection
 
 | Key | Action |
@@ -112,10 +180,11 @@ Execution
 | Left | Go to parent / delete search char |
 | Right | Open directory |
 | Space | Toggle selection on current file |
-| Enter | Open directory / confirm selection |
+| Enter | Confirm selection |
 | Backspace | Delete search char / go to parent |
 | Ctrl+A | Select all visible files |
 | Ctrl+D | Deselect all |
+| Ctrl+R | Reset to the starting directory/state |
 | Tab | Show selected files summary |
 | Esc | Clear search / quit |
 | Any letter | Fuzzy search |
@@ -127,9 +196,10 @@ Execution
 | Up/Down | Navigate directories |
 | Left | Go to parent |
 | Right | Open directory |
-| Enter | Open directory |
+| Enter | Confirm current directory |
 | Backspace | Go to parent |
 | c | Confirm current directory |
+| Ctrl+R | Reset to the starting directory |
 | Esc | Cancel (go back) |
 
 ## Data Safety
@@ -150,7 +220,9 @@ This tool is designed to avoid silent data loss:
 
 7. **Verified delete on move fallback** — When a move cannot use an atomic same-device rename, the source is deleted only after the destination copy has been verified.
 
-8. **Clean exit** — Terminal state (raw mode, alternate screen, cursor visibility) is restored on normal exit, Ctrl+C, SIGINT, and SIGTERM.
+8. **Trash by default** — `rmi` moves items to trash unless you explicitly opt into `--hard-delete` or set that mode in config.
+
+9. **Clean exit** — Terminal state (raw mode, alternate screen, cursor visibility) is restored on normal exit, Ctrl+C, SIGINT, and SIGTERM.
 
 ## Shell Completions
 
@@ -159,7 +231,7 @@ This tool is designed to avoid silent data loss:
 Add to `~/.bashrc`:
 
 ```sh
-source /path/to/interactive-move-cli/completions/mvi.bash
+source /path/to/interactive-move-copy-cli/completions/mvi.bash
 ```
 
 ### Zsh
@@ -170,13 +242,21 @@ Source the helper file directly from `~/.zshrc`:
 [[ ! -f ~/.config/zsh/mvi.zsh ]] || source ~/.config/zsh/mvi.zsh
 ```
 
+One-time setup:
+
+```sh
+mkdir -p ~/.config/zsh
+cp /path/to/interactive-move-copy-cli/completions/mvi.zsh ~/.config/zsh/mvi.zsh
+```
+
 The TUI requires an interactive terminal. `--help` and `--version` work in non-interactive shells, but browsing mode does not.
 
 ## Project Structure
 
 ```text
 src/
-  bin/mvi.ts, cpi.ts      Entry points (shebang scripts)
+  bin/mvi.ts, cpi.ts, rmi.ts      Entry points (shebang scripts)
+  config.ts               Shared config loading and normalization
   cli.ts                   Arg parsing, orchestration
   core/types.ts            TypeScript interfaces
   core/constants.ts        ANSI codes, key maps, colors
@@ -191,12 +271,15 @@ src/
   ops/validator.ts         Pre-flight validation
   ops/executor.ts          Verified execution with progress
   ops/safe-fs.ts           Staging, verification, and recovery journal logic
+  scripts/config-init.ts   Create or normalize the default config
+  scripts/config-edit.ts   Open the config in the default editor
 tests/
   cli.test.ts              Non-interactive runtime checks
   fuzzy.test.ts            Fuzzy matching tests
   format.test.ts           Formatting tests
   icons.test.ts            Icon resolution tests
   recovery.test.ts         Journal recovery behavior
+  config.test.ts           Config loading tests
   validator.test.ts        Validation logic tests
 ```
 

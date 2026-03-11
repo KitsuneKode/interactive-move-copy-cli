@@ -9,19 +9,24 @@
   },
   "bin": {
     "mvi": "./src/bin/mvi.ts",
-    "cpi": "./src/bin/cpi.ts"
+    "cpi": "./src/bin/cpi.ts",
+    "rmi": "./src/bin/rmi.ts"
   },
   "scripts": {
     "clean": "rm -rf dist",
     "build:js:mvi": "bun build --target=bun --outfile dist/mvi.js src/bin/mvi-build.ts",
     "build:js:cpi": "bun build --target=bun --outfile dist/cpi.js src/bin/cpi-build.ts",
-    "build": "bun run clean && bun run build:js:mvi && bun run build:js:cpi",
+    "build:js:rmi": "bun build --target=bun --outfile dist/rmi.js src/bin/rmi-build.ts",
+    "build": "bun run clean && bun run build:js:mvi && bun run build:js:cpi && bun run build:js:rmi",
     "build:compile:mvi": "bun build --compile --target=bun --outfile dist/mvi src/bin/mvi-build.ts",
     "build:compile:cpi": "bun build --compile --target=bun --outfile dist/cpi src/bin/cpi-build.ts",
-    "build:compile": "bun run build:compile:mvi && bun run build:compile:cpi",
+    "build:compile:rmi": "bun build --compile --target=bun --outfile dist/rmi src/bin/rmi-build.ts",
+    "build:compile": "bun run build:compile:mvi && bun run build:compile:cpi && bun run build:compile:rmi",
+    "config:init": "bun run src/scripts/config-init.ts",
+    "config:edit": "bun run src/scripts/config-edit.ts",
     "test": "bun test",
     "check": "bun run typecheck && bun run lint && bun run lint:md && bun test",
-    "link:global": "bun run build && bun link",
+    "link:global": "bun run config:init && bun run build && bun link",
     "unlink:global": "bun unlink",
     "relink:global": "bun unlink && bun run link:global",
     "prepublishOnly": "bun run test && bun run build",

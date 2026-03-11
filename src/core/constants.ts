@@ -49,6 +49,7 @@ export const KEYS = {
   CTRL_C: "\x03",
   CTRL_A: "\x01",
   CTRL_D: "\x04",
+  CTRL_R: "\x12",
   TAB: "\x09",
 } as const;
 

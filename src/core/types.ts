@@ -27,8 +27,15 @@ export interface KeyEvent {
   char: string;
 }
 
-export type OperationMode = "move" | "copy";
-export type OperationStrategy = "rename" | "verified_copy" | "verified_copy_delete";
+export type OperationMode = "move" | "copy" | "remove";
+export type RemovalMode = "trash" | "hard-delete";
+export type OperationStrategy =
+  | "rename"
+  | "verified_copy"
+  | "verified_copy_delete"
+  | "trash_rename"
+  | "trash_verified"
+  | "hard_delete";
 
 export interface NavigationEntry {
   dir: string;

@@ -1,6 +1,6 @@
 import { access, constants, lstat, stat } from "node:fs/promises";
 import { basename, dirname, join, resolve, sep } from "node:path";
-import type { OperationMode } from "../core/types.ts";
+import type { OperationMode, RemovalMode } from "../core/types.ts";
 
 export interface ValidationResult {
   valid: boolean;
@@ -126,5 +126,56 @@ export async function validateOperation(
     valid: errors.length === 0,
     errors: [...new Set(errors)],
     conflicts: [...new Set(conflicts)].sort((a, b) => a.localeCompare(b)),
+  };
+}
+
+export async function validateRemovalOperation(
+  sources: string[],
+  removalMode: RemovalMode,
+): Promise<ValidationResult> {
+  const errors: string[] = [];
+  const resolvedSources = new Map<string, string>();
+
+  for (const source of sources) {
+    const sourceResolved = resolve(source);
+    resolvedSources.set(source, sourceResolved);
+
+    try {
+      await lstat(sourceResolved);
+    } catch {
+      errors.push(`Source "${source}" no longer exists`);
+      continue;
+    }
+
+    if (removalMode === "trash") {
+      try {
+        await access(dirname(sourceResolved), constants.W_OK);
+      } catch {
+        errors.push(`Cannot move "${source}" to trash from its current directory`);
+      }
+    }
+  }
+
+  const uniqueSources = [...resolvedSources.values()].sort((a, b) => a.localeCompare(b));
+  for (let i = 0; i < uniqueSources.length; i++) {
+    const current = uniqueSources[i];
+    if (current === undefined) continue;
+
+    for (let j = i + 1; j < uniqueSources.length; j++) {
+      const other = uniqueSources[j];
+      if (other === undefined || current === other) continue;
+
+      if (isNestedPath(current, other) || isNestedPath(other, current)) {
+        errors.push(
+          `Cannot remove both "${basename(current)}" and its nested path "${basename(other)}" in the same run`,
+        );
+      }
+    }
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors: [...new Set(errors)],
+    conflicts: [],
   };
 }

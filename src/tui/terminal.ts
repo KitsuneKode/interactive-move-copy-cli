@@ -54,6 +54,7 @@ export function parseKeyEvent(data: string): KeyEvent {
   if (data === KEYS.CTRL_C) return { name: "ctrl+c", raw, ctrl: true, shift: false, char: "c" };
   if (data === KEYS.CTRL_A) return { name: "ctrl+a", raw, ctrl: true, shift: false, char: "a" };
   if (data === KEYS.CTRL_D) return { name: "ctrl+d", raw, ctrl: true, shift: false, char: "d" };
+  if (data === KEYS.CTRL_R) return { name: "ctrl+r", raw, ctrl: true, shift: false, char: "r" };
 
   // Special keys
   if (data === KEYS.UP) return { name: "up", raw, ctrl: false, shift: false, char: "" };

@@ -1,4 +1,4 @@
-# Zsh completion bootstrap for mvi and cpi.
+# Zsh completion bootstrap for mvi, cpi, and rmi.
 # Source this file from .zshrc when you do not want to use fpath autoloading.
 
 _mvi_options() {
@@ -31,6 +31,39 @@ _cpi() {
   _mvi "$@"
 }
 
+_rmi_options() {
+  _values "rmi option" \
+    "-h[Show help]" \
+    "--help[Show help]" \
+    "-v[Show version]" \
+    "--version[Show version]" \
+    "--trash[Move items to trash]" \
+    "--hard-delete[Permanently delete items]"
+}
+
+_rmi() {
+  emulate -L zsh -o extendedglob -o bareglobqual -o nullglob
+
+  if (( CURRENT == 2 )); then
+    if [[ ${words[CURRENT]} == -* ]]; then
+      _rmi_options
+      return
+    fi
+
+    _alternative \
+      "directories:directory:_directories" \
+      "options:option:_rmi_options"
+    return
+  fi
+
+  if (( CURRENT == 3 )) && [[ ${words[2]} == --trash || ${words[2]} == --hard-delete ]]; then
+    _directories
+    return
+  fi
+
+  _message "no more arguments"
+}
+
 if ! (( $+functions[compdef] )); then
   autoload -Uz compinit
   compinit -i -d "${XDG_CACHE_HOME:-$HOME/.cache}/zsh/.zcompdump-mvi"
@@ -38,3 +71,4 @@ fi
 
 compdef _mvi mvi
 compdef _cpi cpi
+compdef _rmi rmi

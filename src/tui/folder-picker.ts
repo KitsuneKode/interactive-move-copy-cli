@@ -15,7 +15,8 @@ export async function folderPicker(
   fileCount: number,
   mode: OperationMode,
 ): Promise<PickerResult> {
-  let currentDir = resolve(startDir);
+  const initialDir = resolve(startDir);
+  let currentDir = initialDir;
   let cursor = 0;
   let scrollOffset = 0;
 
@@ -73,24 +74,7 @@ export async function folderPicker(
       }
 
       case "enter": {
-        if (cursor === 0) {
-          const parent = dirname(currentDir);
-          if (parent !== currentDir) {
-            currentDir = parent;
-            cursor = 0;
-            scrollOffset = 0;
-            invalidateCache();
-          }
-        } else {
-          const dir = dirs[cursor - 1];
-          if (dir) {
-            currentDir = dir.path;
-            cursor = 0;
-            scrollOffset = 0;
-            invalidateCache();
-          }
-        }
-        break;
+        return { destination: currentDir, cancelled: false };
       }
 
       case "backspace": {
@@ -108,6 +92,13 @@ export async function folderPicker(
         if (key.char === "c" || key.char === "C") {
           return { destination: currentDir, cancelled: false };
         }
+        break;
+
+      case "ctrl+r":
+        currentDir = initialDir;
+        cursor = 0;
+        scrollOffset = 0;
+        invalidateCache();
         break;
     }
   }
@@ -172,7 +163,9 @@ function renderPicker(
   lines.push(` ${dirs.length} director${dirs.length !== 1 ? "ies" : "y"}`);
 
   // Hints
-  lines.push(` ${COLORS.hint}Left:parent Right:open Enter:open c:confirm Esc:cancel${ANSI.reset}`);
+  lines.push(
+    ` ${COLORS.hint}Left:parent Right:open Enter:confirm Ctrl+R:reset Esc:cancel${ANSI.reset}`,
+  );
 
   render(lines);
 }

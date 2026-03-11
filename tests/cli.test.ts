@@ -40,4 +40,25 @@ describe("cli runtime", () => {
     expect(stderr).toBe("");
     expect(stdout).toContain("Usage: mvi [directory]");
   });
+
+  test("rmi help includes delete mode options", async () => {
+    const proc = Bun.spawn({
+      cmd: ["bun", "run", "src/bin/rmi.ts", "--help"],
+      cwd: process.cwd(),
+      stdout: "pipe",
+      stderr: "pipe",
+      stdin: "ignore",
+    });
+
+    const [stdout, stderr, exitCode] = await Promise.all([
+      new Response(proc.stdout).text(),
+      new Response(proc.stderr).text(),
+      proc.exited,
+    ]);
+
+    expect(exitCode).toBe(0);
+    expect(stderr).toBe("");
+    expect(stdout).toContain("Usage: rmi [directory]");
+    expect(stdout).toContain("--hard-delete");
+  });
 });

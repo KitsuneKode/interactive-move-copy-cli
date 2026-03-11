@@ -14,12 +14,13 @@ interface BrowserResult {
 }
 
 export async function fileBrowser(startDir: string, mode: OperationMode): Promise<BrowserResult> {
+  const initialDir = resolve(startDir);
   const state: SelectionState = {
     selected: new Set(),
     cursor: 0,
     scrollOffset: 0,
     searchQuery: "",
-    currentDir: resolve(startDir),
+    currentDir: initialDir,
   };
 
   const navStack: NavigationEntry[] = [];
@@ -87,14 +88,7 @@ export async function fileBrowser(startDir: string, mode: OperationMode): Promis
       case "right": {
         if (state.cursor === 0) break;
 
-        const opened = openCurrentEntry(state, displayEntries, navStack);
-        if (!opened && state.selected.size > 0) {
-          return {
-            selected: [...state.selected],
-            currentDir: state.currentDir,
-            cancelled: false,
-          };
-        }
+        openCurrentEntry(state, displayEntries, navStack);
         break;
       }
 
@@ -113,8 +107,7 @@ export async function fileBrowser(startDir: string, mode: OperationMode): Promis
       }
 
       case "enter": {
-        const opened = openCurrentEntry(state, displayEntries, navStack);
-        if (!opened && state.selected.size > 0) {
+        if (state.selected.size > 0) {
           return {
             selected: [...state.selected],
             currentDir: state.currentDir,
@@ -148,6 +141,11 @@ export async function fileBrowser(startDir: string, mode: OperationMode): Promis
         break;
       }
 
+      case "ctrl+r":
+        resetBrowserState(state, initialDir);
+        showSelectedSummary = false;
+        break;
+
       case "tab":
         showSelectedSummary = true;
         break;
@@ -159,6 +157,15 @@ export async function fileBrowser(startDir: string, mode: OperationMode): Promis
         break;
     }
   }
+}
+
+function resetBrowserState(state: SelectionState, initialDir: string): void {
+  state.selected.clear();
+  state.cursor = 0;
+  state.scrollOffset = 0;
+  state.searchQuery = "";
+  state.currentDir = initialDir;
+  invalidateCache();
 }
 
 function goToParent(state: SelectionState, navStack: NavigationEntry[]): void {
@@ -229,14 +236,14 @@ function renderBrowser(
 ): void {
   const { cols } = getTerminalSize();
   const viewportHeight = getViewportHeight();
-  const modeLabel = mode === "move" ? "MOVE" : "COPY";
+  const modeLabel = mode === "move" ? "MOVE" : mode === "copy" ? "COPY" : "REMOVE";
   const dirDisplay = state.currentDir.replace(process.env.HOME || "", "~");
 
   const lines: string[] = [];
 
   // Header
   lines.push(
-    `${COLORS.header} ${modeLabel}: Select source files ${ANSI.reset}${COLORS.dim} ${dirDisplay} ${ANSI.reset}`,
+    `${COLORS.header} ${modeLabel}: Select source items ${ANSI.reset}${COLORS.dim} ${dirDisplay} ${ANSI.reset}`,
   );
 
   // Search bar
@@ -292,7 +299,7 @@ function renderBrowser(
     lines.push(` ${COLORS.dim}Selected: ${names}${ANSI.reset}`);
   } else {
     lines.push(
-      ` ${COLORS.hint}Left:parent Right:open Space:toggle Enter:confirm Esc:quit${ANSI.reset}`,
+      ` ${COLORS.hint}Left:parent Right:open Space:toggle Enter:confirm Ctrl+R:reset Esc:quit${ANSI.reset}`,
     );
   }
 

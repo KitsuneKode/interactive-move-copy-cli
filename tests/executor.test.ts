@@ -2,15 +2,24 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { executeOperation } from "../src/ops/executor.ts";
+import { executeOperation, executeRemovalOperation } from "../src/ops/executor.ts";
 
 let testRoot: string;
+let previousXdgDataHome: string | undefined;
 
 beforeEach(async () => {
   testRoot = await mkdtemp(join(tmpdir(), "mvi-exec-test-"));
+  previousXdgDataHome = process.env.XDG_DATA_HOME;
+  process.env.XDG_DATA_HOME = join(testRoot, "xdg-data");
 });
 
 afterEach(async () => {
+  if (previousXdgDataHome === undefined) {
+    delete process.env.XDG_DATA_HOME;
+  } else {
+    process.env.XDG_DATA_HOME = previousXdgDataHome;
+  }
+
   if (testRoot) {
     await rm(testRoot, { recursive: true, force: true }).catch(() => {});
   }
@@ -257,5 +266,60 @@ describe("copy operation", () => {
     for (let i = 0; i < binaryData.length; i++) {
       expect(copied[i]).toBe(binaryData[i]);
     }
+  });
+});
+
+describe("remove operation", () => {
+  test("moves files to trash by default", async () => {
+    const src = join(testRoot, "rsrc");
+    await mkdir(src);
+
+    const filePath = join(src, "trash-me.txt");
+    await writeFile(filePath, "keep recoverable");
+
+    const results = await executeRemovalOperation([filePath], "trash");
+
+    expect(results[0]?.success).toBe(true);
+    const strategy = results[0]?.strategy;
+    expect(strategy === "trash_rename" || strategy === "trash_verified").toBe(true);
+
+    const sourceExists = await stat(filePath)
+      .then(() => true)
+      .catch(() => false);
+    expect(sourceExists).toBe(false);
+
+    const xdgDataHome = process.env.XDG_DATA_HOME;
+    expect(xdgDataHome).toBeDefined();
+    if (!xdgDataHome) {
+      throw new Error("XDG_DATA_HOME should be set for trash tests");
+    }
+
+    const trashFilesDir = join(xdgDataHome, "Trash", "files");
+    const trashInfoDir = join(xdgDataHome, "Trash", "info");
+    const trashedNames = await readdir(trashFilesDir);
+    expect(trashedNames).toEqual(["trash-me.txt"]);
+    expect(await readFile(join(trashFilesDir, "trash-me.txt"), "utf8")).toBe("keep recoverable");
+
+    const infoContents = await readFile(join(trashInfoDir, "trash-me.txt.trashinfo"), "utf8");
+    expect(infoContents).toContain("[Trash Info]");
+    expect(infoContents).toContain("Path=");
+  });
+
+  test("hard delete permanently removes files", async () => {
+    const src = join(testRoot, "rsrc2");
+    await mkdir(src);
+
+    const filePath = join(src, "gone.txt");
+    await writeFile(filePath, "delete me");
+
+    const results = await executeRemovalOperation([filePath], "hard-delete");
+
+    expect(results[0]?.success).toBe(true);
+    expect(results[0]?.strategy).toBe("hard_delete");
+
+    const exists = await stat(filePath)
+      .then(() => true)
+      .catch(() => false);
+    expect(exists).toBe(false);
   });
 });

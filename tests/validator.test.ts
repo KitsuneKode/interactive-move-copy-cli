@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { validateOperation } from "../src/ops/validator.ts";
+import { validateOperation, validateRemovalOperation } from "../src/ops/validator.ts";
 
 let testDir: string;
 let srcDir: string;
@@ -16,6 +16,25 @@ beforeAll(async () => {
   await mkdir(destDir, { recursive: true });
   await writeFile(join(srcDir, "file1.txt"), "hello");
   await writeFile(join(srcDir, "file2.txt"), "world");
+});
+
+describe("validateRemovalOperation", () => {
+  test("valid trash removal passes", async () => {
+    const result = await validateRemovalOperation([join(srcDir, "file2.txt")], "trash");
+    expect(result.valid).toBe(true);
+    expect(result.errors).toEqual([]);
+  });
+
+  test("detects parent-child overlap for removal", async () => {
+    const nestedDir = join(srcDir, "remove-nested");
+    const nestedFile = join(nestedDir, "child.txt");
+    await mkdir(nestedDir, { recursive: true });
+    await writeFile(nestedFile, "child");
+
+    const result = await validateRemovalOperation([nestedDir, nestedFile], "hard-delete");
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((error) => error.includes("nested path"))).toBe(true);
+  });
 });
 
 afterAll(async () => {

@@ -16,9 +16,9 @@ import {
   unlink,
   writeFile,
 } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
-import type { ExecutionResult, OperationMode } from "../core/types.ts";
+import type { ExecutionResult, OperationMode, RemovalMode } from "../core/types.ts";
 
 interface ManifestEntry {
   relativePath: string;
@@ -55,6 +55,15 @@ interface JournalContext {
 const HIDDEN_PREFIX = ".mvi";
 export const RECOVERY_JOURNAL_DIR = join(tmpdir(), "mvi-recovery");
 
+function getTrashBaseDir(): string {
+  if (process.platform === "darwin") {
+    return join(homedir(), ".Trash");
+  }
+
+  const dataHome = process.env.XDG_DATA_HOME || join(homedir(), ".local", "share");
+  return join(dataHome, "Trash");
+}
+
 function uniqueSuffix(): string {
   return `${process.pid}.${Date.now()}.${randomUUID().slice(0, 8)}`;
 }
@@ -71,6 +80,10 @@ async function pathExists(path: string): Promise<boolean> {
   return lstat(path)
     .then(() => true)
     .catch(() => false);
+}
+
+async function ensureDirectory(path: string): Promise<void> {
+  await mkdir(path, { recursive: true });
 }
 
 async function syncPath(path: string): Promise<void> {
@@ -241,6 +254,23 @@ async function writeJournal(entry: RecoveryJournal): Promise<JournalContext> {
   return { journalPath, entry };
 }
 
+async function copyVerifiedPath(
+  source: string,
+  destination: string,
+): Promise<{ bytesVerified: number }> {
+  await copySourceToStage(source, destination);
+  const [sourceManifest, destinationManifest] = await Promise.all([
+    buildManifest(source),
+    buildManifest(destination),
+  ]);
+
+  if (!manifestsMatch(sourceManifest, destinationManifest)) {
+    throw new Error("verification failed after staging");
+  }
+
+  return { bytesVerified: sourceManifest.bytesVerified };
+}
+
 async function removeJournal(journalPath: string): Promise<void> {
   await rm(journalPath, { force: true });
   await syncPath(RECOVERY_JOURNAL_DIR);
@@ -313,6 +343,172 @@ async function isSameDevice(source: string, destinationDir: string): Promise<boo
 
 async function cleanupStage(stagedPath: string): Promise<void> {
   await removePath(stagedPath).catch(() => {});
+}
+
+function escapeTrashInfoPath(source: string): string {
+  return source
+    .split("/")
+    .map((segment) => encodeURIComponent(segment))
+    .join("/");
+}
+
+function formatTrashDeletionDate(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  const seconds = String(date.getSeconds()).padStart(2, "0");
+  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+}
+
+async function getUniqueTrashName(
+  filesDir: string,
+  infoDir: string,
+  name: string,
+): Promise<string> {
+  let candidate = name;
+  let counter = 1;
+
+  while (
+    (await pathExists(join(filesDir, candidate))) ||
+    (await pathExists(join(infoDir, `${candidate}.trashinfo`)))
+  ) {
+    candidate = `${name}.${counter}`;
+    counter++;
+  }
+
+  return candidate;
+}
+
+async function writeTrashInfo(infoPath: string, source: string): Promise<void> {
+  const contents = [
+    "[Trash Info]",
+    `Path=${escapeTrashInfoPath(source)}`,
+    `DeletionDate=${formatTrashDeletionDate(new Date())}`,
+    "",
+  ].join("\n");
+
+  await writeFile(infoPath, contents, "utf8");
+  await syncPath(infoPath);
+}
+
+async function moveToTrash(source: string): Promise<ExecutionResult> {
+  const sourceInfo = await lstat(source).catch(() => null);
+  const dest = source;
+
+  if (!sourceInfo) {
+    return {
+      source,
+      dest,
+      success: false,
+      error: "file no longer exists",
+      strategy: "trash_verified",
+      verified: false,
+      bytesVerified: 0,
+    };
+  }
+
+  const trashBase = getTrashBaseDir();
+  const filesDir = process.platform === "darwin" ? trashBase : join(trashBase, "files");
+  const infoDir = process.platform === "darwin" ? trashBase : join(trashBase, "info");
+
+  await ensureDirectory(filesDir);
+  await ensureDirectory(infoDir);
+
+  const trashName = await getUniqueTrashName(filesDir, infoDir, basename(source));
+  const trashPath = join(filesDir, trashName);
+  const trashInfoPath = join(infoDir, `${trashName}.trashinfo`);
+
+  await writeTrashInfo(trashInfoPath, source);
+
+  try {
+    if (await isSameDevice(source, filesDir)) {
+      await rename(source, trashPath);
+      await syncPath(filesDir);
+      await syncPath(dirname(source));
+      return {
+        source,
+        dest: trashPath,
+        success: true,
+        strategy: "trash_rename",
+        verified: true,
+        bytesVerified: 0,
+      };
+    }
+
+    const stagedPath = createHiddenSiblingPath(filesDir, "tmp", trashName);
+
+    try {
+      const { bytesVerified } = await copyVerifiedPath(source, stagedPath);
+      await rename(stagedPath, trashPath);
+      await syncPath(filesDir);
+      await removePath(source);
+      await syncPath(dirname(source));
+
+      return {
+        source,
+        dest: trashPath,
+        success: true,
+        strategy: "trash_verified",
+        verified: true,
+        bytesVerified,
+      };
+    } catch (err) {
+      await cleanupStage(stagedPath);
+      throw err;
+    }
+  } catch (err) {
+    await rm(trashInfoPath, { force: true }).catch(() => {});
+    return {
+      source,
+      dest: trashPath,
+      success: false,
+      error: formatError(err),
+      strategy: "trash_verified",
+      verified: false,
+      bytesVerified: 0,
+    };
+  }
+}
+
+async function hardDeletePath(source: string): Promise<ExecutionResult> {
+  try {
+    await lstat(source);
+  } catch {
+    return {
+      source,
+      dest: source,
+      success: false,
+      error: "file no longer exists",
+      strategy: "hard_delete",
+      verified: false,
+      bytesVerified: 0,
+    };
+  }
+
+  try {
+    await removePath(source);
+    await syncPath(dirname(source));
+    return {
+      source,
+      dest: source,
+      success: true,
+      strategy: "hard_delete",
+      verified: false,
+      bytesVerified: 0,
+    };
+  } catch (err) {
+    return {
+      source,
+      dest: source,
+      success: false,
+      error: formatError(err),
+      strategy: "hard_delete",
+      verified: false,
+      bytesVerified: 0,
+    };
+  }
 }
 
 async function executeRenameMove(
@@ -532,33 +728,9 @@ export async function executeSafeOperation(
   const stagedPath = createHiddenSiblingPath(destinationDir, "tmp", basename(source));
 
   try {
-    await copySourceToStage(source, stagedPath);
-    const [sourceManifest, stagedManifest] = await Promise.all([
-      buildManifest(source),
-      buildManifest(stagedPath),
-    ]);
+    const { bytesVerified } = await copyVerifiedPath(source, stagedPath);
 
-    if (!manifestsMatch(sourceManifest, stagedManifest)) {
-      await cleanupStage(stagedPath);
-      return {
-        source,
-        dest: finalPath,
-        success: false,
-        error: "verification failed after staging",
-        strategy: mode === "copy" ? "verified_copy" : "verified_copy_delete",
-        verified: false,
-        bytesVerified: 0,
-      };
-    }
-
-    return promoteVerifiedStage(
-      source,
-      finalPath,
-      stagedPath,
-      mode,
-      overwrite,
-      sourceManifest.bytesVerified,
-    );
+    return promoteVerifiedStage(source, finalPath, stagedPath, mode, overwrite, bytesVerified);
   } catch (err) {
     await cleanupStage(stagedPath);
     return {
@@ -571,6 +743,17 @@ export async function executeSafeOperation(
       bytesVerified: 0,
     };
   }
+}
+
+export async function executeSafeRemoval(
+  source: string,
+  removalMode: RemovalMode,
+): Promise<ExecutionResult> {
+  if (removalMode === "hard-delete") {
+    return hardDeletePath(source);
+  }
+
+  return moveToTrash(source);
 }
 
 export async function recoverPendingTransactions(): Promise<RecoveryStatus> {
