@@ -6,6 +6,8 @@ This repository ships three Bun-first terminal tools:
 - `cpi`: interactive copy
 - `rmi`: interactive remove, trash by default
 
+For a faster project handoff, start with [docs/README.md](/home/kitsunekode/Projects/cli-tools/interactive-move-copy-cli/docs/README.md).
+
 ## Core Expectations
 
 - Favor data safety over speed. Do not weaken the staged-copy, verification, overwrite-backup, or recovery-journal behavior without a strong reason.
