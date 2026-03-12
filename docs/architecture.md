@@ -39,6 +39,13 @@
 - `src/ops/validator.ts` prevents ambiguous or dangerous operations before execution.
 - `src/tui/terminal.ts` and the picker components must always restore terminal state on exit.
 
+## Performance Notes
+
+- `src/cli.ts` keeps help/version and non-TTY paths lightweight by deferring heavy runtime imports until they are actually needed.
+- `src/fs/file-info.ts` uses bounded concurrency for directory metadata collection.
+- `src/tui/file-browser.ts` avoids recomputing fuzzy-filter results when only the cursor changes.
+- Do not trade away the verified copy pipeline in `src/ops/safe-fs.ts` for superficial speed gains.
+
 Do not weaken these guarantees without a clear reason:
 
 - no-clobber by default

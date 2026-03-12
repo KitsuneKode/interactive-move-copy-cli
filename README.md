@@ -19,6 +19,8 @@ You can select both files and directories. Selections persist while you navigate
 - Interactive remove command with trash-by-default safety
 - Verified copy pipeline for copy and cross-device move operations
 - Recovery journal for interrupted overwrite replacement
+- Lazy startup path for help/version and non-interactive failures
+- Bounded-concurrency directory metadata scanning for faster large-folder browsing
 - Clean terminal restore on exit, Ctrl+C, or crash
 - Zero runtime dependencies — just Bun
 
@@ -223,6 +225,13 @@ This tool is designed to avoid silent data loss:
 8. **Trash by default** — `rmi` moves items to trash unless you explicitly opt into `--hard-delete` or set that mode in config.
 
 9. **Clean exit** — Terminal state (raw mode, alternate screen, cursor visibility) is restored on normal exit, Ctrl+C, SIGINT, and SIGTERM.
+
+## Performance Notes
+
+- Cold paths stay cheap. `--help`, `--version`, and non-TTY exits avoid loading the full TUI/execution stack.
+- Directory scans use bounded concurrency instead of serial `lstat()` calls.
+- The file browser reuses cached directory listings and memoized search results instead of recomputing on every cursor move.
+- Safety-critical copy verification is intentionally not optimized away.
 
 ## Shell Completions
 

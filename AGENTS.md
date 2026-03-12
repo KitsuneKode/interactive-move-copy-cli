@@ -13,6 +13,7 @@ For a faster project handoff, start with [docs/README.md](/home/kitsunekode/Proj
 - Favor data safety over speed. Do not weaken the staged-copy, verification, overwrite-backup, or recovery-journal behavior without a strong reason.
 - `rmi` must stay trash-first unless the user explicitly opts into hard delete by flag or config.
 - The TUI is interactive-only. `--help` and `--version` should continue to work without a TTY, but full browsing mode should not emit escape sequences in non-interactive contexts.
+- Prefer removing wasted work over adding abstraction. Cold-path laziness, bounded concurrency, and avoiding unnecessary rescans are the right optimization shape here.
 
 ## Important Paths
 

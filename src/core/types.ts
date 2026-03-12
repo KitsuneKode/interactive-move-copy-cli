@@ -37,12 +37,6 @@ export type OperationStrategy =
   | "trash_verified"
   | "hard_delete";
 
-export interface NavigationEntry {
-  dir: string;
-  cursor: number;
-  scrollOffset: number;
-}
-
 export interface FuzzyResult {
   matches: boolean;
   score: number;

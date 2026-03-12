@@ -38,6 +38,7 @@ VISUAL=true EDITOR=true XDG_CONFIG_HOME=/tmp/interactive-move-copy-cli-config bu
 - Keep `mvi`, `cpi`, and `rmi` aligned where they share UX and CLI structure.
 - Do not introduce non-interactive escape sequences on stdout for help/version flows.
 - Favor leaving behind a recoverable temp or backup path over risking destructive data loss.
+- Prefer optimizations that remove unnecessary work. Avoid full rescans on cursor-only events, avoid loading interactive modules for help/version flows, and keep concurrency bounded.
 
 ## When Touching Docs
 

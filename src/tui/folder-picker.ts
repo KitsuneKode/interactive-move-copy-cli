@@ -1,7 +1,7 @@
 import { dirname, resolve } from "node:path";
 import { ANSI, COLORS } from "../core/constants.ts";
 import type { FileEntry, OperationMode } from "../core/types.ts";
-import { invalidateCache, listDirectory } from "../fs/file-info.ts";
+import { listDirectory } from "../fs/file-info.ts";
 import { getViewportHeight, render } from "./renderer.ts";
 import { getTerminalSize, readKey } from "./terminal.ts";
 
@@ -55,7 +55,6 @@ export async function folderPicker(
           currentDir = parent;
           cursor = 0;
           scrollOffset = 0;
-          invalidateCache();
         }
         break;
       }
@@ -67,7 +66,6 @@ export async function folderPicker(
             currentDir = dir.path;
             cursor = 0;
             scrollOffset = 0;
-            invalidateCache();
           }
         }
         break;
@@ -83,7 +81,6 @@ export async function folderPicker(
           currentDir = parent;
           cursor = 0;
           scrollOffset = 0;
-          invalidateCache();
         }
         break;
       }
@@ -98,7 +95,6 @@ export async function folderPicker(
         currentDir = initialDir;
         cursor = 0;
         scrollOffset = 0;
-        invalidateCache();
         break;
     }
   }

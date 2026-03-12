@@ -1,7 +1,7 @@
 import { basename, dirname, resolve } from "node:path";
 import { ANSI, COLORS } from "../core/constants.ts";
-import type { FileEntry, NavigationEntry, OperationMode, SelectionState } from "../core/types.ts";
-import { invalidateCache, listDirectory } from "../fs/file-info.ts";
+import type { FileEntry, OperationMode, SelectionState } from "../core/types.ts";
+import { listDirectory } from "../fs/file-info.ts";
 import { padColumn } from "../fs/format.ts";
 import { fuzzyMatch, highlightMatch } from "./fuzzy.ts";
 import { getViewportHeight, render, stripAnsi } from "./renderer.ts";
@@ -22,13 +22,20 @@ export async function fileBrowser(startDir: string, mode: OperationMode): Promis
     searchQuery: "",
     currentDir: initialDir,
   };
-
-  const navStack: NavigationEntry[] = [];
   let showSelectedSummary = false;
+  let lastFilteredQuery = "";
+  let lastFilteredSource: FileEntry[] | null = null;
+  let lastFilteredEntries: FileEntry[] = [];
 
   while (true) {
     const allEntries = await listDirectory(state.currentDir);
-    const filtered = filterEntries(allEntries, state.searchQuery);
+    const filtered =
+      allEntries === lastFilteredSource && state.searchQuery === lastFilteredQuery
+        ? lastFilteredEntries
+        : filterEntries(allEntries, state.searchQuery);
+    lastFilteredSource = allEntries;
+    lastFilteredQuery = state.searchQuery;
+    lastFilteredEntries = filtered;
     const displayEntries = filtered;
 
     // Clamp cursor
@@ -80,7 +87,7 @@ export async function fileBrowser(startDir: string, mode: OperationMode): Promis
           state.cursor = 0;
           state.scrollOffset = 0;
         } else {
-          goToParent(state, navStack);
+          goToParent(state);
         }
         break;
       }
@@ -88,7 +95,7 @@ export async function fileBrowser(startDir: string, mode: OperationMode): Promis
       case "right": {
         if (state.cursor === 0) break;
 
-        openCurrentEntry(state, displayEntries, navStack);
+        openCurrentEntry(state, displayEntries);
         break;
       }
 
@@ -123,7 +130,7 @@ export async function fileBrowser(startDir: string, mode: OperationMode): Promis
           state.cursor = 0;
           state.scrollOffset = 0;
         } else {
-          goToParent(state, navStack);
+          goToParent(state);
         }
         break;
 
@@ -165,47 +172,30 @@ function resetBrowserState(state: SelectionState, initialDir: string): void {
   state.scrollOffset = 0;
   state.searchQuery = "";
   state.currentDir = initialDir;
-  invalidateCache();
 }
 
-function goToParent(state: SelectionState, navStack: NavigationEntry[]): void {
+function goToParent(state: SelectionState): void {
   const parent = dirname(state.currentDir);
   if (parent !== state.currentDir) {
-    navStack.push({
-      dir: state.currentDir,
-      cursor: state.cursor,
-      scrollOffset: state.scrollOffset,
-    });
     state.currentDir = parent;
     state.cursor = 0;
     state.scrollOffset = 0;
     state.searchQuery = "";
-    invalidateCache();
   }
 }
 
-function openCurrentEntry(
-  state: SelectionState,
-  entries: FileEntry[],
-  navStack: NavigationEntry[],
-): boolean {
+function openCurrentEntry(state: SelectionState, entries: FileEntry[]): boolean {
   if (state.cursor === 0) {
-    goToParent(state, navStack);
+    goToParent(state);
     return true;
   }
 
   const entry = entries[state.cursor - 1];
   if (entry?.isDirectory && entry.readable) {
-    navStack.push({
-      dir: state.currentDir,
-      cursor: state.cursor,
-      scrollOffset: state.scrollOffset,
-    });
     state.currentDir = entry.path;
     state.cursor = 0;
     state.scrollOffset = 0;
     state.searchQuery = "";
-    invalidateCache();
     return true;
   }
 

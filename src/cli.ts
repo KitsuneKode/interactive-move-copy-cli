@@ -1,26 +1,7 @@
 import { stat } from "node:fs/promises";
 import { basename, resolve } from "node:path";
-import { loadConfig } from "./config.ts";
 import { ANSI, COLORS } from "./core/constants.ts";
 import type { OperationMode, RemovalMode } from "./core/types.ts";
-import {
-  executeOperation,
-  executeRemovalOperation,
-  printSummary,
-  recoverPendingOperations,
-} from "./ops/executor.ts";
-import { validateOperation, validateRemovalOperation } from "./ops/validator.ts";
-import { fileBrowser } from "./tui/file-browser.ts";
-import { folderPicker } from "./tui/folder-picker.ts";
-import { clearPreviousFrame } from "./tui/renderer.ts";
-import {
-  cleanup,
-  enterAltScreen,
-  enterRawMode,
-  exitAltScreen,
-  exitRawMode,
-  readKey,
-} from "./tui/terminal.ts";
 
 const VERSION = "1.0.0";
 
@@ -132,6 +113,7 @@ Keybindings (source selection):
 }
 
 async function confirmSelection(prompt: string): Promise<boolean> {
+  const { enterRawMode, exitRawMode, readKey } = await import("./tui/terminal.ts");
   enterRawMode();
   process.stdout.write(prompt);
   const confirmKey = await readKey();
@@ -141,20 +123,6 @@ async function confirmSelection(prompt: string): Promise<boolean> {
 }
 
 export async function run(mode: OperationMode): Promise<void> {
-  const recovery = await recoverPendingOperations();
-
-  if (!recovery.canProceed) {
-    for (const message of recovery.messages) {
-      console.error(message);
-    }
-    process.exitCode = 1;
-    return;
-  }
-
-  for (const message of recovery.messages) {
-    console.log(message);
-  }
-
   let parsed: ParsedArgs;
   try {
     parsed = parseArgs(mode, process.argv.slice(2));
@@ -193,26 +161,57 @@ export async function run(mode: OperationMode): Promise<void> {
     return;
   }
 
-  const config = await loadConfig();
-  const removalMode = parsed.removalModeOverride ?? config.rmi.mode;
+  const [executorModule, validatorModule, browserModule, rendererModule, terminalModule] =
+    await Promise.all([
+      import("./ops/executor.ts"),
+      import("./ops/validator.ts"),
+      import("./tui/file-browser.ts"),
+      import("./tui/renderer.ts"),
+      import("./tui/terminal.ts"),
+    ]);
+  const pickerModule = mode === "remove" ? null : await import("./tui/folder-picker.ts");
 
-  enterRawMode();
-  enterAltScreen();
-  clearPreviousFrame();
+  const recovery = await executorModule.recoverPendingOperations();
 
-  const browserResult = await fileBrowser(parsed.startDir, mode);
+  if (!recovery.canProceed) {
+    for (const message of recovery.messages) {
+      console.error(message);
+    }
+    process.exitCode = 1;
+    return;
+  }
+
+  for (const message of recovery.messages) {
+    console.log(message);
+  }
+
+  let removalMode: RemovalMode = "trash";
+  if (mode === "remove") {
+    const { loadConfig } = await import("./config.ts");
+    const config = await loadConfig();
+    removalMode = parsed.removalModeOverride ?? config.rmi.mode;
+  }
+
+  terminalModule.enterRawMode();
+  terminalModule.enterAltScreen();
+  rendererModule.clearPreviousFrame();
+
+  const browserResult = await browserModule.fileBrowser(parsed.startDir, mode);
 
   if (browserResult.cancelled || browserResult.selected.length === 0) {
-    cleanup();
+    terminalModule.cleanup();
     console.log("No files selected. Aborted.");
     return;
   }
 
   if (mode === "remove") {
-    const validation = await validateRemovalOperation(browserResult.selected, removalMode);
+    const validation = await validatorModule.validateRemovalOperation(
+      browserResult.selected,
+      removalMode,
+    );
 
     if (!validation.valid) {
-      cleanup();
+      terminalModule.cleanup();
       console.log(`${COLORS.error}Validation errors:${ANSI.reset}`);
       for (const err of validation.errors) {
         console.log(`  ${COLORS.fail}✗${ANSI.reset} ${err}`);
@@ -220,8 +219,8 @@ export async function run(mode: OperationMode): Promise<void> {
       return;
     }
 
-    exitAltScreen();
-    exitRawMode();
+    terminalModule.exitAltScreen();
+    terminalModule.exitRawMode();
 
     const verb = removalMode === "trash" ? "Move to trash" : "Permanently delete";
     console.log(
@@ -238,32 +237,40 @@ export async function run(mode: OperationMode): Promise<void> {
     }
 
     console.log("");
-    const results = await executeRemovalOperation(browserResult.selected, removalMode);
-    printSummary(results, mode);
+    const results = await executorModule.executeRemovalOperation(
+      browserResult.selected,
+      removalMode,
+    );
+    executorModule.printSummary(results, mode);
     return;
   }
 
-  clearPreviousFrame();
-  const pickerResult = await folderPicker(
+  rendererModule.clearPreviousFrame();
+  if (!pickerModule) {
+    process.exitCode = 1;
+    return;
+  }
+
+  const pickerResult = await pickerModule.folderPicker(
     browserResult.currentDir,
     browserResult.selected.length,
     mode,
   );
 
   if (pickerResult.cancelled || !pickerResult.destination) {
-    cleanup();
+    terminalModule.cleanup();
     console.log("No destination selected. Aborted.");
     return;
   }
 
-  const validation = await validateOperation(
+  const validation = await validatorModule.validateOperation(
     browserResult.selected,
     pickerResult.destination,
     mode,
   );
 
   if (!validation.valid) {
-    cleanup();
+    terminalModule.cleanup();
     console.log(`${COLORS.error}Validation errors:${ANSI.reset}`);
     for (const err of validation.errors) {
       console.log(`  ${COLORS.fail}✗${ANSI.reset} ${err}`);
@@ -273,18 +280,18 @@ export async function run(mode: OperationMode): Promise<void> {
 
   let overwrite = false;
   if (validation.conflicts.length > 0) {
-    exitAltScreen();
-    exitRawMode();
+    terminalModule.exitAltScreen();
+    terminalModule.exitRawMode();
 
     console.log(`\n${COLORS.search}Name conflicts at destination:${ANSI.reset}`);
     for (const name of validation.conflicts) {
       console.log(`  - ${name}`);
     }
 
-    enterRawMode();
+    terminalModule.enterRawMode();
     process.stdout.write("\nOverwrite? [y/N/s(kip conflicts)] ");
-    const key = await readKey();
-    exitRawMode();
+    const key = await terminalModule.readKey();
+    terminalModule.exitRawMode();
 
     if (key.char === "y" || key.char === "Y") {
       overwrite = true;
@@ -303,8 +310,8 @@ export async function run(mode: OperationMode): Promise<void> {
     }
   }
 
-  exitAltScreen();
-  exitRawMode();
+  terminalModule.exitAltScreen();
+  terminalModule.exitRawMode();
 
   const verb = mode === "move" ? "Move" : "Copy";
   const destDisplay = pickerResult.destination.replace(process.env.HOME || "", "~");
@@ -322,12 +329,12 @@ export async function run(mode: OperationMode): Promise<void> {
   }
 
   console.log("");
-  const results = await executeOperation(
+  const results = await executorModule.executeOperation(
     browserResult.selected,
     pickerResult.destination,
     mode,
     overwrite,
   );
 
-  printSummary(results, mode);
+  executorModule.printSummary(results, mode);
 }

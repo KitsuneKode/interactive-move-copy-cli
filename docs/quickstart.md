@@ -71,3 +71,9 @@ Rules:
 - Zsh completion is sourced through `completions/mvi.zsh`
 - Completion must work for `mvi`, `cpi`, and `rmi`
 - Users should never be told to run completion functions directly
+
+## Lightweight Expectations
+
+- Keep help/version and non-TTY failures cheap.
+- Keep bundle/runtime changes small and measurable.
+- Preserve safety work in copy/move/remove paths even when it costs I/O.
