@@ -13,6 +13,7 @@ export interface DestinationSearchContext {
 export interface DestinationSearchResult {
   path: string | null;
   message?: string;
+  cancelled?: boolean;
 }
 
 const executableCache = new Map<string, boolean>();
@@ -246,40 +247,30 @@ async function runFzfDirectorySearch(
   const roots = resolveConfiguredRoots(context, currentDir);
   const initialCandidates = buildInitialCandidates(context, currentDir);
 
-  const producerScript = `
+  // Build a single shell pipeline: producer | dedup | fzf.
+  // Using an OS-level pipe instead of Node.js stream piping between two spawned
+  // processes avoids data-flow issues in Bun's child_process implementation.
+  const producerBlock = [
+    ...initialCandidates.map((candidate) => `printf '%s\\n' ${JSON.stringify(candidate)};`),
+    ...roots.map((root) => {
+      if (scanner.command === "find") {
+        return `${scanner.command} ${JSON.stringify(root)} ${scanner.args.map((arg) => JSON.stringify(arg)).join(" ")}`;
+      }
+
+      return `${scanner.command} ${scanner.args.map((arg) => JSON.stringify(arg)).join(" ")} ${JSON.stringify(root)}`;
+    }),
+  ].join("\n      ");
+
+  const fzfFlags = "--prompt 'target> ' --bind 'enter:accept' --preview-window hidden";
+  const queryFlag = initialQuery ? ` --query ${JSON.stringify(initialQuery)}` : "";
+
+  const script = `
     {
-      ${initialCandidates.map((candidate) => `printf '%s\\n' ${JSON.stringify(candidate)};`).join("\n      ")}
-      ${roots
-        .map((root) => {
-          if (scanner.command === "find") {
-            return `${scanner.command} ${JSON.stringify(root)} ${scanner.args.map((arg) => JSON.stringify(arg)).join(" ")}`;
-          }
+      ${producerBlock}
+    } | awk '!seen[$0]++' | fzf ${fzfFlags}${queryFlag}`;
 
-          return `${scanner.command} ${scanner.args.map((arg) => JSON.stringify(arg)).join(" ")} ${JSON.stringify(root)}`;
-        })
-        .join("\n      ")}
-    } | awk '!seen[$0]++'`;
-
-  const producer = spawn("sh", ["-lc", producerScript], {
-    stdio: ["ignore", "pipe", "ignore"],
-  });
-
-  const fzfArgs = [
-    "--prompt",
-    "target> ",
-    "--select-1",
-    "--exit-0",
-    "--bind",
-    "enter:accept",
-    "--preview-window",
-    "hidden",
-  ];
-  if (initialQuery) {
-    fzfArgs.push("--query", initialQuery);
-  }
-
-  const fzf = spawn("fzf", fzfArgs, {
-    stdio: ["pipe", "pipe", "inherit"],
+  const child = spawn("sh", ["-lc", script], {
+    stdio: ["inherit", "pipe", "inherit"],
     env: {
       ...process.env,
       FZF_DEFAULT_OPTS_FILE: "/dev/null",
@@ -287,13 +278,10 @@ async function runFzfDirectorySearch(
     },
   });
 
-  producer.stdout?.pipe(fzf.stdin);
+  const [output, exitCode] = await Promise.all([collectStdout(child.stdout), waitForClose(child)]);
 
-  const [output, fzfExitCode] = await Promise.all([collectStdout(fzf.stdout), waitForClose(fzf)]);
-  await waitForClose(producer).catch(() => null);
-
-  if (fzfExitCode !== 0) {
-    return { path: null };
+  if (exitCode !== 0) {
+    return { path: null, cancelled: true };
   }
 
   const selected = parseSelectedCandidate(output);

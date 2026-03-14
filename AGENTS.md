@@ -17,7 +17,7 @@ For a faster project handoff, start with [docs/README.md](/home/kitsunekode/Proj
 
 ## Important Paths
 
-- `src/cli.ts`: argument parsing, mode dispatch, help output
+- `src/cli.ts`: argument parsing, mode dispatch, help output, confirmation flow, destination-selection loop
 - `src/config.ts`: shared config bootstrap and normalization
 - `src/ops/safe-fs.ts`: verified filesystem operations, trash handling, recovery journal
 - `src/ops/executor.ts`: operation execution and summaries
@@ -64,6 +64,19 @@ Current default shape:
 - Destination picker supports direct path jumps, bookmarks, and optional `fzf` search from configured roots
 - Embedded `fzf` must stay self-contained: feed it plain absolute directory paths and do not rely on user `FZF_DEFAULT_OPTS` or preview bindings
 - `Ctrl+F` and `g` should jump within the destination picker. Final confirmation still happens with Enter or `c`
+- Cancelling `fzf` (Ctrl+C or Escape inside fzf) must return to the folder picker with a notice, not exit the whole tool
+
+## Confirmation and Navigation Expectations
+
+- Ctrl+C is a kill signal. It must **never** proceed with an operation. At any prompt it must abort immediately.
+- Only explicit `Y` or `Enter` should confirm an operation. `n`, `N`, and Ctrl+C always abort.
+- `confirmSelection` in `src/cli.ts` returns `"confirm" | "abort" | "back"`. Ctrl+C → abort, Escape → back, n/N → abort.
+- For `mvi`/`cpi`, the move/copy flow is a destination-selection loop:
+  - Escape at the `[Y/n]` confirmation prompt goes back to the destination picker (not abort).
+  - Escape at the conflict `[y/N/s]` prompt also goes back to the destination picker.
+  - The original file selection is saved and restored each loop iteration so conflict-resolution "skip" mutations are undone on loop-back.
+  - `pickerStartDir` starts at `browserResult.currentDir` and updates to the last picked destination on loop-back.
+- For `rmi`, there is no destination to return to, so both Escape and Ctrl+C at confirmation abort.
 
 ## Development Notes
 

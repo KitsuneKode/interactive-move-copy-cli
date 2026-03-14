@@ -81,6 +81,13 @@ Rules:
   - `g` and `Ctrl+F` jump to the target directory but do not confirm it; Enter or `c` still confirms the destination
   - `Enter` or `c` confirms the current directory
   - `Ctrl+R` resets to the starting directory
+- Confirmation prompts:
+  - `Y` or `Enter` confirms the operation
+  - `n`, `N`, or `Ctrl+C` aborts
+  - `Esc` at `mvi`/`cpi` confirmation goes back to the destination picker with the same file selection
+  - `Esc` at `rmi` confirmation aborts (no destination to return to)
+  - `Esc` at conflict resolution `[y/N/s]` also goes back to the destination picker
+  - Cancelling `fzf` (Ctrl+C or Escape inside fzf) returns to the folder picker with a notice
 
 ## Shell Completion
 

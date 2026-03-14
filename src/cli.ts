@@ -115,14 +115,19 @@ Keybindings (source selection):
 `);
 }
 
-async function confirmSelection(prompt: string): Promise<boolean> {
+type ConfirmResult = "confirm" | "abort" | "back";
+
+async function confirmSelection(prompt: string): Promise<ConfirmResult> {
   const { enterRawMode, exitRawMode, readKey } = await import("./tui/terminal.ts");
   enterRawMode();
   process.stdout.write(prompt);
   const confirmKey = await readKey();
   exitRawMode();
 
-  return confirmKey.char !== "n" && confirmKey.char !== "N";
+  if (confirmKey.name === "ctrl+c") return "abort";
+  if (confirmKey.name === "escape") return "back";
+  if (confirmKey.char === "n" || confirmKey.char === "N") return "abort";
+  return "confirm";
 }
 
 export async function run(mode: OperationMode): Promise<void> {
@@ -220,6 +225,7 @@ export async function run(mode: OperationMode): Promise<void> {
     return;
   }
 
+  // --- Remove mode: no destination picker, simple confirm ---
   if (mode === "remove") {
     const validation = await validatorModule.validateRemovalOperation(
       browserResult.selected,
@@ -246,8 +252,8 @@ export async function run(mode: OperationMode): Promise<void> {
       console.log(`  ${basename(selected)}`);
     }
 
-    const confirmed = await confirmSelection("\n[Y/n] ");
-    if (!confirmed) {
+    const rmiConfirm = await confirmSelection("\n[Y/n] ");
+    if (rmiConfirm !== "confirm") {
       console.log("\nAborted.");
       return;
     }
@@ -261,111 +267,147 @@ export async function run(mode: OperationMode): Promise<void> {
     return;
   }
 
+  // --- Move/Copy mode: destination picker loop with back navigation ---
   rendererModule.clearPreviousFrame();
   if (!pickerModule) {
     process.exitCode = 1;
     return;
   }
 
-  const pickerResult = await pickerModule.folderPicker(
-    browserResult.currentDir,
-    browserResult.selected.length,
-    mode,
-    {
-      config: destinationSearchConfig ?? {
-        roots: ["~"],
-        bookmarks: {},
-        rememberRecent: true,
-        recentLimit: 8,
+  // Save original selection so conflict-resolution "skip" mutations can be undone on loop-back.
+  const originalSelected = [...browserResult.selected];
+  let pickerStartDir = browserResult.currentDir;
+
+  while (true) {
+    // Restore selection in case a previous iteration mutated it (conflict skip).
+    browserResult.selected.length = 0;
+    browserResult.selected.push(...originalSelected);
+
+    const pickerResult = await pickerModule.folderPicker(
+      pickerStartDir,
+      browserResult.selected.length,
+      mode,
+      {
+        config: destinationSearchConfig ?? {
+          roots: ["~"],
+          bookmarks: {},
+          rememberRecent: true,
+          recentLimit: 8,
+        },
+        recentDirectories,
       },
-      recentDirectories,
-    },
-  );
+    );
 
-  if (pickerResult.cancelled || !pickerResult.destination) {
-    terminalModule.cleanup();
-    console.log("No destination selected. Aborted.");
-    return;
-  }
-
-  const validation = await validatorModule.validateOperation(
-    browserResult.selected,
-    pickerResult.destination,
-    mode,
-  );
-
-  if (!validation.valid) {
-    terminalModule.cleanup();
-    console.log(`${COLORS.error}Validation errors:${ANSI.reset}`);
-    for (const err of validation.errors) {
-      console.log(`  ${COLORS.fail}✗${ANSI.reset} ${err}`);
+    if (pickerResult.cancelled || !pickerResult.destination) {
+      terminalModule.cleanup();
+      console.log("No destination selected. Aborted.");
+      return;
     }
-    return;
-  }
 
-  let overwrite = false;
-  if (validation.conflicts.length > 0) {
+    // Remember the chosen destination so Escape→back reopens the picker there.
+    pickerStartDir = pickerResult.destination;
+
+    const validation = await validatorModule.validateOperation(
+      browserResult.selected,
+      pickerResult.destination,
+      mode,
+    );
+
+    if (!validation.valid) {
+      terminalModule.cleanup();
+      console.log(`${COLORS.error}Validation errors:${ANSI.reset}`);
+      for (const err of validation.errors) {
+        console.log(`  ${COLORS.fail}✗${ANSI.reset} ${err}`);
+      }
+      return;
+    }
+
+    // --- Conflict resolution ---
+    let overwrite = false;
+    if (validation.conflicts.length > 0) {
+      terminalModule.exitAltScreen();
+      terminalModule.exitRawMode();
+
+      console.log(`\n${COLORS.search}Name conflicts at destination:${ANSI.reset}`);
+      for (const name of validation.conflicts) {
+        console.log(`  - ${name}`);
+      }
+
+      terminalModule.enterRawMode();
+      process.stdout.write("\nOverwrite? [y/N/s(kip conflicts)/Esc: reselect destination] ");
+      const key = await terminalModule.readKey();
+      terminalModule.exitRawMode();
+
+      if (key.name === "ctrl+c") {
+        console.log("\nAborted.");
+        return;
+      }
+      if (key.name === "escape") {
+        // Go back to destination picker.
+        terminalModule.enterRawMode();
+        terminalModule.enterAltScreen();
+        rendererModule.clearPreviousFrame();
+        continue;
+      }
+      if (key.char === "y" || key.char === "Y") {
+        overwrite = true;
+      } else if (key.char === "s" || key.char === "S") {
+        const conflictSet = new Set(validation.conflicts);
+        const filtered = browserResult.selected.filter((s) => !conflictSet.has(basename(s)));
+        if (filtered.length === 0) {
+          console.log("\nAll files conflict. Aborted.");
+          return;
+        }
+        browserResult.selected.length = 0;
+        browserResult.selected.push(...filtered);
+      } else {
+        console.log("\nAborted.");
+        return;
+      }
+    }
+
+    // --- Final confirmation ---
     terminalModule.exitAltScreen();
     terminalModule.exitRawMode();
 
-    console.log(`\n${COLORS.search}Name conflicts at destination:${ANSI.reset}`);
-    for (const name of validation.conflicts) {
-      console.log(`  - ${name}`);
+    const verb = mode === "move" ? "Move" : "Copy";
+    const destDisplay = pickerResult.destination.replace(process.env.HOME || "", "~");
+    console.log(
+      `\n${verb} ${browserResult.selected.length} file${browserResult.selected.length !== 1 ? "s" : ""} to ${COLORS.header}${destDisplay}${ANSI.reset}?`,
+    );
+    for (const selected of browserResult.selected) {
+      console.log(`  ${basename(selected)}`);
     }
 
-    terminalModule.enterRawMode();
-    process.stdout.write("\nOverwrite? [y/N/s(kip conflicts)] ");
-    const key = await terminalModule.readKey();
-    terminalModule.exitRawMode();
-
-    if (key.char === "y" || key.char === "Y") {
-      overwrite = true;
-    } else if (key.char === "s" || key.char === "S") {
-      const conflictSet = new Set(validation.conflicts);
-      const filtered = browserResult.selected.filter((s) => !conflictSet.has(basename(s)));
-      if (filtered.length === 0) {
-        console.log("\nAll files conflict. Aborted.");
-        return;
-      }
-      browserResult.selected.length = 0;
-      browserResult.selected.push(...filtered);
-    } else {
+    const confirmed = await confirmSelection("\n[Y/n/Esc: reselect destination] ");
+    if (confirmed === "abort") {
       console.log("\nAborted.");
       return;
     }
-  }
+    if (confirmed === "back") {
+      // Re-enter TUI and loop back to the destination picker.
+      terminalModule.enterRawMode();
+      terminalModule.enterAltScreen();
+      rendererModule.clearPreviousFrame();
+      continue;
+    }
 
-  terminalModule.exitAltScreen();
-  terminalModule.exitRawMode();
+    // confirmed === "confirm" — execute the operation.
+    console.log("");
+    const results = await executorModule.executeOperation(
+      browserResult.selected,
+      pickerResult.destination,
+      mode,
+      overwrite,
+    );
 
-  const verb = mode === "move" ? "Move" : "Copy";
-  const destDisplay = pickerResult.destination.replace(process.env.HOME || "", "~");
-  console.log(
-    `\n${verb} ${browserResult.selected.length} file${browserResult.selected.length !== 1 ? "s" : ""} to ${COLORS.header}${destDisplay}${ANSI.reset}?`,
-  );
-  for (const selected of browserResult.selected) {
-    console.log(`  ${basename(selected)}`);
-  }
+    if (results.some((result) => result.success)) {
+      if (configModule && loadedConfig) {
+        await configModule.recordRecentDestination(pickerResult.destination, loadedConfig);
+      }
+    }
 
-  const confirmed = await confirmSelection("\n[Y/n] ");
-  if (!confirmed) {
-    console.log("\nAborted.");
+    executorModule.printSummary(results, mode);
     return;
   }
-
-  console.log("");
-  const results = await executorModule.executeOperation(
-    browserResult.selected,
-    pickerResult.destination,
-    mode,
-    overwrite,
-  );
-
-  if (results.some((result) => result.success)) {
-    if (configModule && loadedConfig) {
-      await configModule.recordRecentDestination(pickerResult.destination, loadedConfig);
-    }
-  }
-
-  executorModule.printSummary(results, mode);
 }

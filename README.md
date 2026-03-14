@@ -154,12 +154,16 @@ File Browser (alt screen)
   - Press Enter with selections to confirm source files/directories
   |
   v
+Destination-Selection Loop:
+  |
+  v
 Folder Picker (alt screen)
   - Browse directories only
   - Navigate into subdirs with Right
   - Press `g` to jump directly to a path or bookmark like `~/dotfiles` or `dotfiles`
   - Press `Ctrl+F` to jump to a destination with `fzf` across configured roots plus recent destinations
   - Embedded `fzf` uses a clean local config so user preview or bind overrides do not break selection
+  - Cancelling `fzf` returns to the folder picker with a notice
   - Press Enter or 'c' to confirm current directory as destination
   |
   v
@@ -168,11 +172,13 @@ Validation (pre-flight checks)
   - Source != destination?
   - Not moving a parent into its own child?
   - Name conflicts at destination? -> prompt overwrite/skip/abort
+  - Esc at conflict prompt goes back to Folder Picker
   |
   v
 Confirmation Prompt
   - Lists all files and destination
-  - Requires explicit 'y' to proceed (default is No)
+  - Y or Enter confirms, n/N/Ctrl+C aborts
+  - Esc goes back to Folder Picker to reselect the destination
   |
   v
 Execution
@@ -199,7 +205,7 @@ Validation (pre-flight checks)
   v
 Confirmation Prompt
   - Trash by default, hard delete only when explicitly requested
-  - Requires explicit 'y' to proceed (default is No)
+  - Y or Enter confirms, n/N/Ctrl+C/Esc aborts
   |
   v
 Execution
@@ -238,7 +244,7 @@ Execution
 | Backspace | Go to parent |
 | c | Confirm current directory |
 | Ctrl+R | Reset to the starting directory |
-| Esc | Cancel (go back) |
+| Esc | Cancel and abort |
 
 ## Data Safety
 
@@ -246,7 +252,7 @@ This tool is designed to avoid silent data loss:
 
 1. **No-clobber default** — If a path with the same name exists at the destination, the operation is skipped unless you explicitly choose overwrite.
 
-2. **Explicit confirmation** — A final `[Y/n]` prompt shows exactly what will happen before any operation runs.
+2. **Explicit confirmation** — A final `[Y/n]` prompt shows exactly what will happen before any operation runs. `Ctrl+C` always aborts. For `mvi`/`cpi`, `Esc` goes back to the destination picker so you can reselect without losing your file selection.
 
 3. **Verified staging** — Copies and cross-device moves write into a hidden staging path, verify the staged result against the source, and only then promote it to the final destination.
 

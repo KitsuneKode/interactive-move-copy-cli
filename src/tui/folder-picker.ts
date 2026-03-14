@@ -126,6 +126,8 @@ export async function folderPicker(
           cursor = 0;
           scrollOffset = 0;
           notice = `Jumped to ${currentDir.replace(process.env.HOME || "", "~")}. Press Enter to confirm.`;
+        } else if (result.cancelled) {
+          notice = "Search cancelled.";
         } else if (result.message) {
           notice = result.message;
         }

@@ -2,7 +2,7 @@
 
 ## Top-Level Shape
 
-- `src/cli.ts`: argument parsing, help output, mode dispatch, confirmation flow
+- `src/cli.ts`: argument parsing, help output, mode dispatch, confirmation flow, destination-selection loop
 - `src/config.ts`: shared config bootstrap and normalization
 - `src/config.ts`: shared config, destination-search preferences, and recent-destination state
 - `src/bin/*.ts`: shebang entrypoints for `mvi`, `cpi`, and `rmi`
@@ -21,11 +21,15 @@
 
 1. Parse CLI flags and starting directory
 2. Open source picker
-3. Open destination picker
-4. Validate conflicts and path safety
-5. Ask for confirmation
-6. Execute verified filesystem operations
-7. Print summary
+3. Enter destination-selection loop:
+   a. Open destination picker
+   b. Validate conflicts and path safety
+   c. If conflicts, prompt overwrite/skip/abort (Escape goes back to 3a)
+   d. Ask for final confirmation (Escape goes back to 3a, Ctrl+C aborts)
+4. Execute verified filesystem operations
+5. Print summary
+
+The destination-selection loop saves and restores the original file selection each iteration so conflict-resolution "skip" mutations are undone on loop-back. The picker reopens at the last chosen destination when navigating back.
 
 `rmi`:
 
@@ -66,6 +70,15 @@ Do not weaken these guarantees without a clear reason:
 - Embedded `fzf` should receive plain absolute directory paths only.
 - Embedded `fzf` should use a self-contained env so global `FZF_DEFAULT_OPTS` or preview bindings do not break the picker.
 - Returning from an external picker must not leak buffered input back into the TUI.
+- Cancelling `fzf` (Ctrl+C or Escape inside fzf) must return to the folder picker with a notice, not exit the whole tool.
+
+## Confirmation Contract
+
+- `confirmSelection` in `src/cli.ts` returns `"confirm" | "abort" | "back"`.
+- Ctrl+C is always an abort signal — it must never proceed with any operation.
+- Only explicit `Y` or `Enter` confirms. `n`/`N` and Ctrl+C abort. Escape returns `"back"`.
+- For `mvi`/`cpi`, Escape at the `[Y/n]` or conflict `[y/N/s]` prompt goes back to the destination picker.
+- For `rmi`, both Escape and Ctrl+C at confirmation abort since there is no destination to return to.
 
 ## Tests by Concern
 
