@@ -4,19 +4,27 @@
   "module": "src/cli.ts",
   "type": "module",
   "private": true,
+  "files": [
+    "bin",
+    "dist",
+    "completions",
+    "README.md",
+    "LICENSE",
+    "config.example.json"
+  ],
   "engines": {
     "bun": ">=1.0.0"
   },
   "bin": {
-    "mvi": "./src/bin/mvi.ts",
-    "cpi": "./src/bin/cpi.ts",
-    "rmi": "./src/bin/rmi.ts"
+    "mvi": "./bin/mvi",
+    "cpi": "./bin/cpi",
+    "rmi": "./bin/rmi"
   },
   "scripts": {
     "clean": "rm -rf dist",
-    "build:js:mvi": "bun build --target=bun --outfile dist/mvi.js src/bin/mvi-build.ts",
-    "build:js:cpi": "bun build --target=bun --outfile dist/cpi.js src/bin/cpi-build.ts",
-    "build:js:rmi": "bun build --target=bun --outfile dist/rmi.js src/bin/rmi-build.ts",
+    "build:js:mvi": "bun build --minify --target=bun --outfile dist/mvi.js src/bin/mvi-build.ts",
+    "build:js:cpi": "bun build --minify --target=bun --outfile dist/cpi.js src/bin/cpi-build.ts",
+    "build:js:rmi": "bun build --minify --target=bun --outfile dist/rmi.js src/bin/rmi-build.ts",
     "build": "bun run clean && bun run build:js:mvi && bun run build:js:cpi && bun run build:js:rmi",
     "build:compile:mvi": "bun build --compile --target=bun --outfile dist/mvi src/bin/mvi-build.ts",
     "build:compile:cpi": "bun build --compile --target=bun --outfile dist/cpi src/bin/cpi-build.ts",
@@ -29,6 +37,7 @@
     "link:global": "bun run config:init && bun run build && bun link",
     "unlink:global": "bun unlink",
     "relink:global": "bun unlink && bun run link:global",
+    "prepack": "bun run build",
     "prepublishOnly": "bun run test && bun run build",
     "lint-staged": "lint-staged",
     "commitlint": "commitlint --edit",

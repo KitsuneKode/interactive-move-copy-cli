@@ -13,6 +13,9 @@ You can select both files and directories. Selections persist while you navigate
 - Multi-select with checkboxes
 - Nerd Font icons for 30+ file types
 - Destination folder picker (directories only)
+- Direct path jump for destination folders (for example `~/dotfiles`)
+- Optional `fzf`-powered destination search from configurable roots
+- Bookmark and recent-destination support for faster targeting
 - Pre-flight validation (permissions, conflicts, circular moves)
 - Explicit confirmation before any operation (`Y/n`)
 - No-clobber by default — never overwrites without asking
@@ -97,6 +100,17 @@ Default config:
 {
   "mvi": {},
   "cpi": {},
+  "destinationSearch": {
+    "roots": [
+      "~"
+    ],
+    "bookmarks": {
+      "dotfiles": "~/dotfiles",
+      "projects": "~/Projects"
+    },
+    "rememberRecent": true,
+    "recentLimit": 8
+  },
   "rmi": {
     "mode": "trash"
   }
@@ -107,7 +121,17 @@ Current keys:
 
 - `mvi`: reserved for future move-specific settings
 - `cpi`: reserved for future copy-specific settings
+- `destinationSearch.roots`: directories searched by `Ctrl+F`, default `["~"]`
+- `destinationSearch.bookmarks`: named directory aliases used by `g`
+- `destinationSearch.rememberRecent`: whether successful destinations are remembered automatically
+- `destinationSearch.recentLimit`: max number of recent destinations to keep
 - `rmi.mode`: default delete behavior, either `"trash"` or `"hard-delete"`
+
+Recent destinations are stored separately in:
+
+```text
+${XDG_CONFIG_HOME:-~/.config}/interactive-move-copy-cli/state.json
+```
 
 ## How It Works
 
@@ -126,6 +150,8 @@ File Browser (alt screen)
 Folder Picker (alt screen)
   - Browse directories only
   - Navigate into subdirs with Right
+  - Press `g` to jump directly to a path or bookmark like `~/dotfiles` or `dotfiles`
+  - Press `Ctrl+F` to open an `fzf` directory search across configured roots plus recent destinations
   - Press Enter or 'c' to confirm current directory as destination
   |
   v
@@ -198,6 +224,8 @@ Execution
 | Up/Down | Navigate directories |
 | Left | Go to parent |
 | Right | Open directory |
+| g | Jump directly to a path or bookmark |
+| Ctrl+F | Fuzzy-search destination directories with `fzf` |
 | Enter | Confirm current directory |
 | Backspace | Go to parent |
 | c | Confirm current directory |

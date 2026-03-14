@@ -1,6 +1,15 @@
 {
   "mvi": {},
   "cpi": {},
+  "destinationSearch": {
+    "roots": ["~"],
+    "bookmarks": {
+      "dotfiles": "~/dotfiles",
+      "projects": "~/Projects"
+    },
+    "rememberRecent": true,
+    "recentLimit": 8
+  },
   "rmi": {
     "mode": "trash"
   }

@@ -2,8 +2,17 @@ import { dirname, resolve } from "node:path";
 import { ANSI, COLORS } from "../core/constants.ts";
 import type { FileEntry, OperationMode } from "../core/types.ts";
 import { listDirectory } from "../fs/file-info.ts";
-import { getViewportHeight, render } from "./renderer.ts";
-import { getTerminalSize, readKey } from "./terminal.ts";
+import type { DestinationSearchContext } from "./destination-search.ts";
+import { promptForDestinationPath, searchDestinationWithFzf } from "./destination-search.ts";
+import { clearPreviousFrame, getViewportHeight, render } from "./renderer.ts";
+import {
+  enterAltScreen,
+  enterRawMode,
+  exitAltScreen,
+  exitRawMode,
+  getTerminalSize,
+  readKey,
+} from "./terminal.ts";
 
 interface PickerResult {
   destination: string | null;
@@ -14,11 +23,13 @@ export async function folderPicker(
   startDir: string,
   fileCount: number,
   mode: OperationMode,
+  searchContext: DestinationSearchContext,
 ): Promise<PickerResult> {
   const initialDir = resolve(startDir);
   let currentDir = initialDir;
   let cursor = 0;
   let scrollOffset = 0;
+  let notice = "";
 
   while (true) {
     const allEntries = await listDirectory(currentDir);
@@ -32,7 +43,8 @@ export async function folderPicker(
     if (cursor < scrollOffset) scrollOffset = cursor;
     if (cursor >= scrollOffset + viewportHeight) scrollOffset = cursor - viewportHeight + 1;
 
-    renderPicker(currentDir, dirs, cursor, scrollOffset, fileCount, mode);
+    renderPicker(currentDir, dirs, cursor, scrollOffset, fileCount, mode, notice);
+    notice = "";
 
     const key = await readKey();
 
@@ -89,7 +101,33 @@ export async function folderPicker(
         if (key.char === "c" || key.char === "C") {
           return { destination: currentDir, cancelled: false };
         }
+        if (key.char === "g" || key.char === "G") {
+          const result = await runExternalPickerAction(() =>
+            promptForDestinationPath(currentDir, searchContext),
+          );
+          if (result.path) {
+            currentDir = result.path;
+            cursor = 0;
+            scrollOffset = 0;
+          } else if (result.message) {
+            notice = result.message;
+          }
+        }
         break;
+
+      case "ctrl+f": {
+        const result = await runExternalPickerAction(() =>
+          searchDestinationWithFzf(currentDir, searchContext),
+        );
+        if (result.path) {
+          currentDir = result.path;
+          cursor = 0;
+          scrollOffset = 0;
+        } else if (result.message) {
+          notice = result.message;
+        }
+        break;
+      }
 
       case "ctrl+r":
         currentDir = initialDir;
@@ -107,6 +145,7 @@ function renderPicker(
   scrollOffset: number,
   fileCount: number,
   mode: OperationMode,
+  notice: string,
 ): void {
   const { cols } = getTerminalSize();
   const viewportHeight = getViewportHeight();
@@ -159,9 +198,27 @@ function renderPicker(
   lines.push(` ${dirs.length} director${dirs.length !== 1 ? "ies" : "y"}`);
 
   // Hints
-  lines.push(
-    ` ${COLORS.hint}Left:parent Right:open Enter:confirm Ctrl+R:reset Esc:cancel${ANSI.reset}`,
-  );
+  if (notice) {
+    lines.push(` ${COLORS.search}${notice}${ANSI.reset}`);
+  } else {
+    lines.push(
+      ` ${COLORS.hint}Left:parent Right:open g:path/bookmark Ctrl+F:fzf Enter:confirm Ctrl+R:reset Esc:cancel${ANSI.reset}`,
+    );
+  }
 
   render(lines);
+}
+
+async function runExternalPickerAction<T>(action: () => Promise<T>): Promise<T> {
+  exitAltScreen();
+  exitRawMode();
+  clearPreviousFrame();
+
+  try {
+    return await action();
+  } finally {
+    enterRawMode();
+    enterAltScreen();
+    clearPreviousFrame();
+  }
 }

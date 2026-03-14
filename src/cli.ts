@@ -1,5 +1,6 @@
 import { stat } from "node:fs/promises";
 import { basename, resolve } from "node:path";
+import type { CliConfig } from "./config.ts";
 import { ANSI, COLORS } from "./core/constants.ts";
 import type { OperationMode, RemovalMode } from "./core/types.ts";
 
@@ -81,6 +82,8 @@ Keybindings (destination):
   Up/Down     Navigate directories
   Left        Go to parent
   Right       Open directory
+  g           Jump directly to a path or bookmark like ~/dotfiles
+  Ctrl+F      Fuzzy-search configured destination roots with fzf
   Enter       Confirm current directory
   c           Confirm current directory
   Backspace   Go to parent
@@ -186,10 +189,23 @@ export async function run(mode: OperationMode): Promise<void> {
   }
 
   let removalMode: RemovalMode = "trash";
+  let configModule: Awaited<typeof import("./config.ts")> | null = null;
+  let loadedConfig: CliConfig | null = null;
+  let destinationSearchConfig = null;
+  let recentDirectories: string[] = [];
   if (mode === "remove") {
-    const { loadConfig } = await import("./config.ts");
-    const config = await loadConfig();
-    removalMode = parsed.removalModeOverride ?? config.rmi.mode;
+    configModule = await import("./config.ts");
+    loadedConfig = await configModule.loadConfig();
+    removalMode = parsed.removalModeOverride ?? loadedConfig.rmi.mode;
+  } else {
+    configModule = await import("./config.ts");
+    const [config, state] = await Promise.all([
+      configModule.loadConfig(),
+      configModule.loadState(),
+    ]);
+    loadedConfig = config;
+    destinationSearchConfig = config.destinationSearch;
+    recentDirectories = state.destinationSearch.recentDirectories;
   }
 
   terminalModule.enterRawMode();
@@ -255,6 +271,15 @@ export async function run(mode: OperationMode): Promise<void> {
     browserResult.currentDir,
     browserResult.selected.length,
     mode,
+    {
+      config: destinationSearchConfig ?? {
+        roots: ["~"],
+        bookmarks: {},
+        rememberRecent: true,
+        recentLimit: 8,
+      },
+      recentDirectories,
+    },
   );
 
   if (pickerResult.cancelled || !pickerResult.destination) {
@@ -335,6 +360,12 @@ export async function run(mode: OperationMode): Promise<void> {
     mode,
     overwrite,
   );
+
+  if (results.some((result) => result.success)) {
+    if (configModule && loadedConfig) {
+      await configModule.recordRecentDestination(pickerResult.destination, loadedConfig);
+    }
+  }
 
   executorModule.printSummary(results, mode);
 }

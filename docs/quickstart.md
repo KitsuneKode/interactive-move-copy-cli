@@ -39,6 +39,17 @@ Default shape:
 {
   "mvi": {},
   "cpi": {},
+  "destinationSearch": {
+    "roots": [
+      "~"
+    ],
+    "bookmarks": {
+      "dotfiles": "~/dotfiles",
+      "projects": "~/Projects"
+    },
+    "rememberRecent": true,
+    "recentLimit": 8
+  },
   "rmi": {
     "mode": "trash"
   }
@@ -50,6 +61,7 @@ Rules:
 - `bun run config:init` creates the file if it is missing and normalizes known defaults if it already exists.
 - `bun run config:edit` ensures the file exists first, then opens it with `$VISUAL`, then `$EDITOR`, then `nano`.
 - `bun run link:global` should continue to run `config:init` before building and linking.
+- Recent destinations are stored separately in `${XDG_CONFIG_HOME:-~/.config}/interactive-move-copy-cli/state.json`.
 
 ## Interaction Model
 
@@ -62,6 +74,8 @@ Rules:
 - Destination picker:
   - `Right` opens a directory
   - `Left` or `Backspace` goes to the parent directory
+  - `g` prompts for a direct path jump or bookmark like `~/dotfiles` or `dotfiles`
+  - `Ctrl+F` opens an `fzf` destination search across configured roots, or falls back to the path jump if `fzf` is unavailable
   - `Enter` or `c` confirms the current directory
   - `Ctrl+R` resets to the starting directory
 

@@ -4,11 +4,13 @@
 
 - `src/cli.ts`: argument parsing, help output, mode dispatch, confirmation flow
 - `src/config.ts`: shared config bootstrap and normalization
+- `src/config.ts`: shared config, destination-search preferences, and recent-destination state
 - `src/bin/*.ts`: shebang entrypoints for `mvi`, `cpi`, and `rmi`
 - `src/ops/safe-fs.ts`: verified copy/move logic, trash handling, overwrite replacement, recovery journal
 - `src/ops/executor.ts`: per-item execution and summaries
 - `src/ops/validator.ts`: preflight validation and conflict detection
 - `src/tui/*`: raw terminal handling, file browser, folder picker, rendering
+- `src/tui/destination-search.ts`: direct path targeting, bookmarks, recents, and external `fzf` integration for destination lookup
 - `completions/*`: Bash and Zsh completion entrypoints
 - `tests/*`: unit and runtime coverage
 

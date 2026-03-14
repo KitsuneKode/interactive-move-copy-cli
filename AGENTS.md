@@ -24,6 +24,7 @@ For a faster project handoff, start with [docs/README.md](/home/kitsunekode/Proj
 - `src/ops/validator.ts`: preflight validation and conflict detection
 - `src/tui/file-browser.ts`: source selection UI
 - `src/tui/folder-picker.ts`: destination picker UI
+- `src/tui/destination-search.ts`: direct path jumps and optional `fzf` destination search
 - `src/tui/terminal.ts`: key parsing, raw mode, cleanup
 - `completions/mvi.zsh`: shared Zsh completion bootstrap for `mvi`, `cpi`, and `rmi`
 - `completions/mvi.bash`: Bash completion
@@ -31,6 +32,7 @@ For a faster project handoff, start with [docs/README.md](/home/kitsunekode/Proj
 ## Config Workflow
 
 - Shared config path: `${XDG_CONFIG_HOME:-~/.config}/interactive-move-copy-cli/config.json`
+- State path: `${XDG_CONFIG_HOME:-~/.config}/interactive-move-copy-cli/state.json`
 - Default config is created or normalized by `bun run config:init`
 - `bun run config:edit` should ensure the file exists first, then open it with `$VISUAL`, then `$EDITOR`, then `nano`
 - `bun run link:global` is expected to initialize config before building and linking
@@ -41,6 +43,12 @@ Current default shape:
 {
   "mvi": {},
   "cpi": {},
+  "destinationSearch": {
+    "roots": ["~"],
+    "bookmarks": {},
+    "rememberRecent": true,
+    "recentLimit": 8
+  },
   "rmi": {
     "mode": "trash"
   }
@@ -53,6 +61,7 @@ Current default shape:
 - Completion should work for `mvi`, `cpi`, and `rmi`
 - Keep local Zsh options compatible with `_arguments` and `_directories`
 - Do not tell users to invoke completion functions directly
+- Destination picker supports direct path jumps, bookmarks, and optional `fzf` search from configured roots
 
 ## Verification
 

@@ -2,7 +2,14 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { ensureConfigFile, getConfigPath, loadConfig } from "../src/config.ts";
+import {
+  ensureConfigFile,
+  getConfigPath,
+  getStatePath,
+  loadConfig,
+  loadState,
+  recordRecentDestination,
+} from "../src/config.ts";
 
 const previousXdgConfigHome = process.env.XDG_CONFIG_HOME;
 
@@ -27,12 +34,19 @@ describe("config", () => {
     expect(result.config).toEqual({
       mvi: {},
       cpi: {},
+      destinationSearch: {
+        roots: ["~"],
+        bookmarks: {},
+        rememberRecent: true,
+        recentLimit: 8,
+      },
       rmi: {
         mode: "trash",
       },
     });
     expect(written).toContain('"mvi": {}');
     expect(written).toContain('"cpi": {}');
+    expect(written).toContain('"destinationSearch"');
     expect(written).toContain('"mode": "trash"');
 
     await rm(tempConfigHome, { recursive: true, force: true });
@@ -47,6 +61,12 @@ describe("config", () => {
     await writeFile(
       configPath,
       JSON.stringify({
+        destinationSearch: {
+          roots: ["~/Projects", "~/dotfiles"],
+          bookmarks: {
+            dotfiles: "~/dotfiles",
+          },
+        },
         rmi: {
           mode: "hard-delete",
         },
@@ -62,6 +82,14 @@ describe("config", () => {
     expect(result.config).toEqual({
       mvi: {},
       cpi: {},
+      destinationSearch: {
+        roots: ["~/Projects", "~/dotfiles"],
+        bookmarks: {
+          dotfiles: "~/dotfiles",
+        },
+        rememberRecent: true,
+        recentLimit: 8,
+      },
       rmi: {
         mode: "hard-delete",
       },
@@ -82,6 +110,12 @@ describe("config", () => {
     expect(config).toEqual({
       mvi: {},
       cpi: {},
+      destinationSearch: {
+        roots: ["~"],
+        bookmarks: {},
+        rememberRecent: true,
+        recentLimit: 8,
+      },
       rmi: {
         mode: "trash",
       },
@@ -101,6 +135,24 @@ describe("config", () => {
     await expect(ensureConfigFile()).rejects.toThrow(
       `Config file is not valid JSON: ${configPath}`,
     );
+
+    await rm(tempConfigHome, { recursive: true, force: true });
+  });
+
+  test("records recent destinations in state without mutating config", async () => {
+    const tempConfigHome = await mkdtemp(join(tmpdir(), "mvi-config-test-"));
+    process.env.XDG_CONFIG_HOME = tempConfigHome;
+
+    const config = await loadConfig();
+    await recordRecentDestination("/tmp/one", config);
+    await recordRecentDestination("/tmp/two", config);
+    await recordRecentDestination("/tmp/one", config);
+
+    const state = await loadState();
+    const stateRaw = await readFile(getStatePath(), "utf8");
+
+    expect(state.destinationSearch.recentDirectories).toEqual(["/tmp/one", "/tmp/two"]);
+    expect(stateRaw).toContain('"/tmp/one"');
 
     await rm(tempConfigHome, { recursive: true, force: true });
   });
