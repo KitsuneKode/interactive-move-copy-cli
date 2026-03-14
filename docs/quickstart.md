@@ -20,6 +20,7 @@ Useful local commands:
 ```sh
 bun run config:init
 bun run config:edit
+bun run relink:global
 bun run src/bin/mvi.ts --help
 bun run src/bin/cpi.ts --help
 bun run src/bin/rmi.ts --help
@@ -76,6 +77,8 @@ Rules:
   - `Left` or `Backspace` goes to the parent directory
   - `g` prompts for a direct path jump or bookmark like `~/dotfiles` or `dotfiles`
   - `Ctrl+F` opens an `fzf` destination search across configured roots, or falls back to the path jump if `fzf` is unavailable
+  - embedded `fzf` uses plain absolute paths and a clean local config so user preview or bind overrides do not break the picker
+  - `g` and `Ctrl+F` jump to the target directory but do not confirm it; Enter or `c` still confirms the destination
   - `Enter` or `c` confirms the current directory
   - `Ctrl+R` resets to the starting directory
 
@@ -91,3 +94,4 @@ Rules:
 - Keep help/version and non-TTY failures cheap.
 - Keep bundle/runtime changes small and measurable.
 - Preserve safety work in copy/move/remove paths even when it costs I/O.
+- Remember that linked global commands execute `dist/` output. Rebuild and usually relink before judging a runtime change through `mvi`, `cpi`, or `rmi`.

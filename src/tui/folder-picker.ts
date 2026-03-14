@@ -12,6 +12,7 @@ import {
   exitRawMode,
   getTerminalSize,
   readKey,
+  settleInputAfterExternalPicker,
 } from "./terminal.ts";
 
 interface PickerResult {
@@ -109,6 +110,7 @@ export async function folderPicker(
             currentDir = result.path;
             cursor = 0;
             scrollOffset = 0;
+            notice = `Jumped to ${currentDir.replace(process.env.HOME || "", "~")}. Press Enter to confirm.`;
           } else if (result.message) {
             notice = result.message;
           }
@@ -123,6 +125,7 @@ export async function folderPicker(
           currentDir = result.path;
           cursor = 0;
           scrollOffset = 0;
+          notice = `Jumped to ${currentDir.replace(process.env.HOME || "", "~")}. Press Enter to confirm.`;
         } else if (result.message) {
           notice = result.message;
         }
@@ -218,6 +221,7 @@ async function runExternalPickerAction<T>(action: () => Promise<T>): Promise<T> 
     return await action();
   } finally {
     enterRawMode();
+    await settleInputAfterExternalPicker();
     enterAltScreen();
     clearPreviousFrame();
   }

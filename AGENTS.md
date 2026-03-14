@@ -62,6 +62,14 @@ Current default shape:
 - Keep local Zsh options compatible with `_arguments` and `_directories`
 - Do not tell users to invoke completion functions directly
 - Destination picker supports direct path jumps, bookmarks, and optional `fzf` search from configured roots
+- Embedded `fzf` must stay self-contained: feed it plain absolute directory paths and do not rely on user `FZF_DEFAULT_OPTS` or preview bindings
+- `Ctrl+F` and `g` should jump within the destination picker. Final confirmation still happens with Enter or `c`
+
+## Development Notes
+
+- Linked commands run the bundled `dist/*.js` output through the `bin/*` wrappers, not live `src/` files
+- After behavior changes, `bun run build` and usually `bun run relink:global` are required before testing the globally linked commands
+- The `bin/*` wrappers must resolve symlinks correctly so `bun link` from `~/.bun/bin` still finds the real project `dist/` directory
 
 ## Verification
 

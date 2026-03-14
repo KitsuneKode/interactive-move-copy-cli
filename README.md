@@ -58,6 +58,13 @@ bun run relink:global   # refresh the global link after changes
 bun run clean           # remove dist/
 ```
 
+If you use the globally linked commands while developing, rebuild and relink after behavior changes:
+
+```sh
+bun run build
+bun run relink:global
+```
+
 ## Usage
 
 ```sh
@@ -151,7 +158,8 @@ Folder Picker (alt screen)
   - Browse directories only
   - Navigate into subdirs with Right
   - Press `g` to jump directly to a path or bookmark like `~/dotfiles` or `dotfiles`
-  - Press `Ctrl+F` to open an `fzf` directory search across configured roots plus recent destinations
+  - Press `Ctrl+F` to jump to a destination with `fzf` across configured roots plus recent destinations
+  - Embedded `fzf` uses a clean local config so user preview or bind overrides do not break selection
   - Press Enter or 'c' to confirm current directory as destination
   |
   v
@@ -224,8 +232,8 @@ Execution
 | Up/Down | Navigate directories |
 | Left | Go to parent |
 | Right | Open directory |
-| g | Jump directly to a path or bookmark |
-| Ctrl+F | Fuzzy-search destination directories with `fzf` |
+| g | Jump to a destination by path or bookmark |
+| Ctrl+F | Jump to a destination with `fzf` |
 | Enter | Confirm current directory |
 | Backspace | Go to parent |
 | c | Confirm current directory |
@@ -260,6 +268,14 @@ This tool is designed to avoid silent data loss:
 - Directory scans use bounded concurrency instead of serial `lstat()` calls.
 - The file browser reuses cached directory listings and memoized search results instead of recomputing on every cursor move.
 - Safety-critical copy verification is intentionally not optimized away.
+
+## Destination Search Notes
+
+- `g` is the exact jump path: use it for absolute paths, relative paths, `~/...`, or configured bookmark names.
+- `Ctrl+F` is the fuzzy destination path: it searches configured roots plus recent destinations with `fzf`.
+- Embedded `fzf` receives plain absolute directory paths only.
+- Embedded `fzf` intentionally ignores global preview and bind overrides so the destination picker stays stable across different user setups.
+- After `g` or `Ctrl+F`, the picker jumps to the chosen directory and stays open. Press Enter or `c` to confirm it.
 
 ## Shell Completions
 

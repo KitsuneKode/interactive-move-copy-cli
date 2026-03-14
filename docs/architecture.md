@@ -13,6 +13,7 @@
 - `src/tui/destination-search.ts`: direct path targeting, bookmarks, recents, and external `fzf` integration for destination lookup
 - `completions/*`: Bash and Zsh completion entrypoints
 - `tests/*`: unit and runtime coverage
+- `bin/*`: symlink-safe launchers for the built `dist/*.js` entrypoints used by `bun link`
 
 ## Runtime Flow
 
@@ -46,6 +47,7 @@
 - `src/cli.ts` keeps help/version and non-TTY paths lightweight by deferring heavy runtime imports until they are actually needed.
 - `src/fs/file-info.ts` uses bounded concurrency for directory metadata collection.
 - `src/tui/file-browser.ts` avoids recomputing fuzzy-filter results when only the cursor changes.
+- `src/tui/destination-search.ts` keeps destination search off the hot path and only spawns external search tools on explicit `g` or `Ctrl+F`.
 - Do not trade away the verified copy pipeline in `src/ops/safe-fs.ts` for superficial speed gains.
 
 Do not weaken these guarantees without a clear reason:
@@ -55,6 +57,15 @@ Do not weaken these guarantees without a clear reason:
 - replace-in-place semantics for overwrite instead of merge/nest
 - trash-by-default behavior for `rmi`
 - non-TTY rejection for interactive mode
+- embedded `fzf` isolation from user preview/bind configuration
+
+## Destination Search Contract
+
+- `g` is exact targeting and resolves paths or bookmark aliases.
+- `Ctrl+F` is fuzzy targeting and scans configured roots plus recent destinations.
+- Embedded `fzf` should receive plain absolute directory paths only.
+- Embedded `fzf` should use a self-contained env so global `FZF_DEFAULT_OPTS` or preview bindings do not break the picker.
+- Returning from an external picker must not leak buffered input back into the TUI.
 
 ## Tests by Concern
 

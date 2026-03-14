@@ -1,2 +1,20 @@
 #!/usr/bin/env sh
-exec bun "$(dirname "$0")/../dist/rmi.js" "$@"
+
+resolve_script_dir() {
+  target=$1
+
+  while [ -L "$target" ]; do
+    target_dir=$(CDPATH= cd -- "$(dirname -- "$target")" && pwd)
+    link_target=$(readlink "$target")
+    case $link_target in
+      /*) target=$link_target ;;
+      *) target=$target_dir/$link_target ;;
+    esac
+  done
+
+  CDPATH= cd -- "$(dirname -- "$target")" && pwd
+}
+
+script_dir=$(resolve_script_dir "$0")
+dist_dir=$(CDPATH= cd -- "$script_dir/../dist" && pwd)
+exec bun "$dist_dir/rmi.js" "$@"

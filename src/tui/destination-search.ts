@@ -15,11 +15,6 @@ export interface DestinationSearchResult {
   message?: string;
 }
 
-interface SearchCandidate {
-  label: string;
-  path: string;
-}
-
 const executableCache = new Map<string, boolean>();
 
 export function expandUserPath(input: string, homeDir: string = homedir()): string {
@@ -69,14 +64,14 @@ function getDirectoryScanner(): { command: string; args: string[] } | null {
   if (hasExecutable("fd")) {
     return {
       command: "fd",
-      args: ["--type", "d", "--hidden", "--follow", "--exclude", ".git", "."],
+      args: ["--type", "d", "--hidden", "--follow", "--exclude", ".git", "--absolute-path", "."],
     };
   }
 
   if (hasExecutable("fdfind")) {
     return {
       command: "fdfind",
-      args: ["--type", "d", "--hidden", "--follow", "--exclude", ".git", "."],
+      args: ["--type", "d", "--hidden", "--follow", "--exclude", ".git", "--absolute-path", "."],
     };
   }
 
@@ -88,6 +83,10 @@ function getDirectoryScanner(): { command: string; args: string[] } | null {
   }
 
   return null;
+}
+
+export function getDirectoryScannerArgsForTest(): { command: string; args: string[] } | null {
+  return getDirectoryScanner();
 }
 
 function getDefaultContext(): DestinationSearchContext {
@@ -138,22 +137,16 @@ function resolveBookmarks(
   return resolved;
 }
 
-function buildInitialCandidates(
-  context: DestinationSearchContext,
-  currentDir: string,
-): SearchCandidate[] {
-  const candidates: SearchCandidate[] = [];
+function buildInitialCandidates(context: DestinationSearchContext, currentDir: string): string[] {
+  const candidates: string[] = [];
   const seen = new Set<string>();
 
-  for (const [name, path] of Object.entries(resolveBookmarks(context, currentDir))) {
+  for (const [, path] of Object.entries(resolveBookmarks(context, currentDir))) {
     if (seen.has(path)) {
       continue;
     }
     seen.add(path);
-    candidates.push({
-      label: `bookmark:${name}`,
-      path,
-    });
+    candidates.push(path);
   }
 
   for (const path of context.recentDirectories) {
@@ -171,10 +164,7 @@ function buildInitialCandidates(
     }
 
     seen.add(resolvedPath);
-    candidates.push({
-      label: "recent",
-      path: resolvedPath,
-    });
+    candidates.push(resolvedPath);
   }
 
   return candidates;
@@ -217,18 +207,13 @@ async function waitForClose(child: ReturnType<typeof spawn>): Promise<number | n
   });
 }
 
-function formatCandidate(candidate: SearchCandidate): string {
-  return `${candidate.label}\t${candidate.path}`;
-}
-
 function parseSelectedCandidate(output: string): string | null {
   const trimmed = output.trim();
   if (!trimmed) {
     return null;
   }
 
-  const [, path] = trimmed.split("\t");
-  return path ? resolve(path) : resolve(trimmed);
+  return resolve(trimmed);
 }
 
 function resolveBookmarkAlias(
@@ -263,31 +248,31 @@ async function runFzfDirectorySearch(
 
   const producerScript = `
     {
-      ${initialCandidates.map((candidate) => `printf '%s\\n' ${JSON.stringify(formatCandidate(candidate))};`).join("\n      ")}
+      ${initialCandidates.map((candidate) => `printf '%s\\n' ${JSON.stringify(candidate)};`).join("\n      ")}
       ${roots
         .map((root) => {
           if (scanner.command === "find") {
-            return `${scanner.command} ${JSON.stringify(root)} ${scanner.args.map((arg) => JSON.stringify(arg)).join(" ")} | sed 's#^#dir\t#'`;
+            return `${scanner.command} ${JSON.stringify(root)} ${scanner.args.map((arg) => JSON.stringify(arg)).join(" ")}`;
           }
 
-          return `${scanner.command} ${scanner.args.map((arg) => JSON.stringify(arg)).join(" ")} ${JSON.stringify(root)} | sed 's#^#dir\\t#'`;
+          return `${scanner.command} ${scanner.args.map((arg) => JSON.stringify(arg)).join(" ")} ${JSON.stringify(root)}`;
         })
         .join("\n      ")}
-    }`;
+    } | awk '!seen[$0]++'`;
 
   const producer = spawn("sh", ["-lc", producerScript], {
     stdio: ["ignore", "pipe", "ignore"],
   });
 
   const fzfArgs = [
-    "--delimiter",
-    "\t",
-    "--with-nth",
-    "1,2",
     "--prompt",
     "target> ",
     "--select-1",
     "--exit-0",
+    "--bind",
+    "enter:accept",
+    "--preview-window",
+    "hidden",
   ];
   if (initialQuery) {
     fzfArgs.push("--query", initialQuery);
@@ -295,6 +280,11 @@ async function runFzfDirectorySearch(
 
   const fzf = spawn("fzf", fzfArgs, {
     stdio: ["pipe", "pipe", "inherit"],
+    env: {
+      ...process.env,
+      FZF_DEFAULT_OPTS_FILE: "/dev/null",
+      FZF_DEFAULT_OPTS: "--layout=reverse --height=100% --border --ansi --no-multi",
+    },
   });
 
   producer.stdout?.pipe(fzf.stdin);

@@ -82,8 +82,8 @@ Keybindings (destination):
   Up/Down     Navigate directories
   Left        Go to parent
   Right       Open directory
-  g           Jump directly to a path or bookmark like ~/dotfiles
-  Ctrl+F      Fuzzy-search configured destination roots with fzf
+  g           Jump to a destination path or bookmark like ~/dotfiles
+  Ctrl+F      Jump to a destination found with fzf from configured roots
   Enter       Confirm current directory
   c           Confirm current directory
   Backspace   Go to parent

@@ -87,6 +87,38 @@ export function readKey(): Promise<KeyEvent> {
   });
 }
 
+export function discardBufferedInput(): void {
+  if (!process.stdin.readable) {
+    return;
+  }
+
+  while (process.stdin.read() !== null) {
+    // Drain buffered bytes so external pickers do not leak enter/escape back into the TUI.
+  }
+}
+
+export async function settleInputAfterExternalPicker(durationMs = 40): Promise<void> {
+  discardBufferedInput();
+
+  if (!process.stdin.readable) {
+    return;
+  }
+
+  await new Promise<void>((resolve) => {
+    const drain = () => {
+      discardBufferedInput();
+    };
+
+    process.stdin.on("data", drain);
+
+    setTimeout(() => {
+      process.stdin.off("data", drain);
+      discardBufferedInput();
+      resolve();
+    }, durationMs);
+  });
+}
+
 export function onResize(callback: () => void): void {
   process.stdout.on("resize", callback);
 }

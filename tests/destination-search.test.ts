@@ -1,7 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
-import { expandUserPath, resolveDirectoryInput } from "../src/tui/destination-search.ts";
+import {
+  expandUserPath,
+  getDirectoryScannerArgsForTest,
+  resolveDirectoryInput,
+} from "../src/tui/destination-search.ts";
 
 describe("destination search helpers", () => {
   test("expands home shorthand", () => {
@@ -26,5 +30,14 @@ describe("destination search helpers", () => {
 
   test("empty input resolves to the current directory", () => {
     expect(resolveDirectoryInput("", "/tmp/base")).toBe(resolve("/tmp/base"));
+  });
+
+  test("fd-style scanners request absolute paths", () => {
+    const scanner = getDirectoryScannerArgsForTest();
+    if (!scanner || (scanner.command !== "fd" && scanner.command !== "fdfind")) {
+      return;
+    }
+
+    expect(scanner.args).toContain("--absolute-path");
   });
 });
