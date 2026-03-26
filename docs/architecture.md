@@ -24,10 +24,10 @@
 3. Enter destination-selection loop:
    a. Open destination picker
    b. Validate conflicts and path safety
-   c. If conflicts, prompt overwrite/skip/abort (Escape goes back to 3a)
-   d. Ask for final confirmation (Escape goes back to 3a, Ctrl+C aborts)
+   c. If conflicts, prompt overwrite/skip/abort with a preview of the existing destination content that would be replaced (Escape goes back to 3a)
+   d. Ask for final confirmation using recursive folder/file counts for the selected paths (Escape goes back to 3a, Ctrl+C aborts)
 4. Execute verified filesystem operations
-5. Print summary
+5. Print summary with recursive folder/file totals for successful items
 
 The destination-selection loop saves and restores the original file selection each iteration so conflict-resolution "skip" mutations are undone on loop-back. The picker reopens at the last chosen destination when navigating back.
 

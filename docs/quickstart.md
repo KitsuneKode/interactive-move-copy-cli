@@ -84,8 +84,10 @@ Rules:
 - Confirmation prompts:
   - `Y` or `Enter` confirms the operation
   - `n`, `N`, or `Ctrl+C` aborts
+  - move/copy confirmation text reports recursive folder/file counts for the current selection instead of treating everything as flat files
   - `Esc` at `mvi`/`cpi` confirmation goes back to the destination picker with the same file selection
   - `Esc` at `rmi` confirmation aborts (no destination to return to)
+  - conflict prompts show the existing file or folder that would be overwritten and preview nested destination entries for folder conflicts
   - `Esc` at conflict resolution `[y/N/s]` also goes back to the destination picker
   - Cancelling `fzf` (Ctrl+C or Escape inside fzf) returns to the folder picker with a notice
 

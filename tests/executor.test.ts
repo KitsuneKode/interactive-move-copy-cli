@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { executeOperation, executeRemovalOperation } from "../src/ops/executor.ts";
+import { executeOperation, executeRemovalOperation, printSummary } from "../src/ops/executor.ts";
 
 let testRoot: string;
 let previousXdgDataHome: string | undefined;
@@ -321,5 +321,42 @@ describe("remove operation", () => {
       .then(() => true)
       .catch(() => false);
     expect(exists).toBe(false);
+  });
+});
+
+describe("printSummary", () => {
+  test("reports folders and files instead of flattening everything to files", () => {
+    const logs: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => {
+      logs.push(args.join(" "));
+    };
+
+    try {
+      printSummary(
+        [
+          {
+            source: "/tmp/project",
+            dest: "/dest/project",
+            success: true,
+            strategy: "rename",
+            verified: false,
+            bytesVerified: 0,
+            sourceKind: "directory",
+            sourceStats: {
+              items: 3,
+              directories: 1,
+              files: 2,
+              symlinks: 0,
+            },
+          },
+        ],
+        "move",
+      );
+    } finally {
+      console.log = originalLog;
+    }
+
+    expect(logs.some((line) => line.includes("1 folder, 2 files moved successfully"))).toBe(true);
   });
 });

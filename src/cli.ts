@@ -1,8 +1,14 @@
 import { stat } from "node:fs/promises";
-import { basename, resolve } from "node:path";
+import { resolve } from "node:path";
 import type { CliConfig } from "./config.ts";
 import { ANSI, COLORS } from "./core/constants.ts";
 import type { OperationMode, RemovalMode } from "./core/types.ts";
+import {
+  describePathStats,
+  formatPathLabel,
+  inspectPath,
+  mergePathStats,
+} from "./fs/path-stats.ts";
 
 const VERSION = "1.0.0";
 
@@ -116,6 +122,10 @@ Keybindings (source selection):
 }
 
 type ConfirmResult = "confirm" | "abort" | "back";
+
+async function inspectSelection(paths: string[]) {
+  return Promise.all(paths.map((path) => inspectPath(path)));
+}
 
 async function confirmSelection(prompt: string): Promise<ConfirmResult> {
   const { enterRawMode, exitRawMode, readKey } = await import("./tui/terminal.ts");
@@ -245,11 +255,11 @@ export async function run(mode: OperationMode): Promise<void> {
     terminalModule.exitRawMode();
 
     const verb = removalMode === "trash" ? "Move to trash" : "Permanently delete";
-    console.log(
-      `\n${verb} ${browserResult.selected.length} item${browserResult.selected.length !== 1 ? "s" : ""}?`,
-    );
-    for (const selected of browserResult.selected) {
-      console.log(`  ${basename(selected)}`);
+    const selectedInspections = await inspectSelection(browserResult.selected);
+    const selectedStats = mergePathStats(selectedInspections.map((inspection) => inspection.stats));
+    console.log(`\n${verb} ${describePathStats(selectedStats)}?`);
+    for (const inspection of selectedInspections) {
+      console.log(`  ${formatPathLabel(inspection.name, inspection.kind)}`);
     }
 
     const rmiConfirm = await confirmSelection("\n[Y/n] ");
@@ -328,9 +338,26 @@ export async function run(mode: OperationMode): Promise<void> {
       terminalModule.exitAltScreen();
       terminalModule.exitRawMode();
 
-      console.log(`\n${COLORS.search}Name conflicts at destination:${ANSI.reset}`);
-      for (const name of validation.conflicts) {
-        console.log(`  - ${name}`);
+      console.log(`\n${COLORS.search}Conflicts at destination:${ANSI.reset}`);
+      for (const conflict of validation.conflicts) {
+        const sourceLabel = formatPathLabel(conflict.sourceName, conflict.sourceKind);
+        const destinationKindLabel =
+          conflict.destinationKind === "directory"
+            ? "folder"
+            : conflict.destinationKind === "symlink"
+              ? "symlink"
+              : "file";
+        console.log(
+          `  - ${sourceLabel} -> existing ${destinationKindLabel}, replacing ${describePathStats(conflict.overwrittenStats)}`,
+        );
+        for (const entry of conflict.overwrittenEntries) {
+          const relativeLabel =
+            entry.kind === "directory" ? `${entry.relativePath}/` : entry.relativePath;
+          console.log(`      ${conflict.sourceName}/${relativeLabel}`);
+        }
+        if (conflict.overwrittenEntryOverflow > 0) {
+          console.log(`      ... and ${conflict.overwrittenEntryOverflow} more existing items`);
+        }
       }
 
       terminalModule.enterRawMode();
@@ -352,10 +379,12 @@ export async function run(mode: OperationMode): Promise<void> {
       if (key.char === "y" || key.char === "Y") {
         overwrite = true;
       } else if (key.char === "s" || key.char === "S") {
-        const conflictSet = new Set(validation.conflicts);
-        const filtered = browserResult.selected.filter((s) => !conflictSet.has(basename(s)));
+        const conflictSet = new Set(
+          validation.conflicts.map((conflict) => resolve(conflict.source)),
+        );
+        const filtered = browserResult.selected.filter((s) => !conflictSet.has(resolve(s)));
         if (filtered.length === 0) {
-          console.log("\nAll files conflict. Aborted.");
+          console.log("\nAll selected items conflict. Aborted.");
           return;
         }
         browserResult.selected.length = 0;
@@ -372,11 +401,13 @@ export async function run(mode: OperationMode): Promise<void> {
 
     const verb = mode === "move" ? "Move" : "Copy";
     const destDisplay = pickerResult.destination.replace(process.env.HOME || "", "~");
+    const selectedInspections = await inspectSelection(browserResult.selected);
+    const selectedStats = mergePathStats(selectedInspections.map((inspection) => inspection.stats));
     console.log(
-      `\n${verb} ${browserResult.selected.length} file${browserResult.selected.length !== 1 ? "s" : ""} to ${COLORS.header}${destDisplay}${ANSI.reset}?`,
+      `\n${verb} ${describePathStats(selectedStats)} to ${COLORS.header}${destDisplay}${ANSI.reset}?`,
     );
-    for (const selected of browserResult.selected) {
-      console.log(`  ${basename(selected)}`);
+    for (const inspection of selectedInspections) {
+      console.log(`  ${formatPathLabel(inspection.name, inspection.kind)}`);
     }
 
     const confirmed = await confirmSelection("\n[Y/n/Esc: reselect destination] ");

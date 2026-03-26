@@ -75,7 +75,33 @@ describe("validateOperation", () => {
   test("detects name conflicts", async () => {
     await writeFile(join(destDir, "file1.txt"), "existing");
     const result = await validateOperation([join(srcDir, "file1.txt")], destDir, "copy");
-    expect(result.conflicts).toContain("file1.txt");
+    expect(result.conflicts[0]?.sourceName).toBe("file1.txt");
+    expect(result.conflicts[0]?.destinationKind).toBe("file");
+    expect(result.conflicts[0]?.overwrittenStats.files).toBe(1);
+  });
+
+  test("includes recursive overwrite details for folder conflicts", async () => {
+    const sourceDir = join(srcDir, "project");
+    const destProjectDir = join(destDir, "project");
+    await mkdir(join(sourceDir, "nested"), { recursive: true });
+    await mkdir(join(destProjectDir, "existing-nested"), { recursive: true });
+    await writeFile(join(sourceDir, "nested", "new.txt"), "new");
+    await writeFile(join(destProjectDir, "old.txt"), "old");
+    await writeFile(join(destProjectDir, "existing-nested", "keep.txt"), "keep");
+
+    const result = await validateOperation([sourceDir], destDir, "copy");
+
+    expect(result.valid).toBe(true);
+    expect(result.conflicts).toHaveLength(1);
+    expect(result.conflicts[0]?.sourceKind).toBe("directory");
+    expect(result.conflicts[0]?.destinationKind).toBe("directory");
+    expect(result.conflicts[0]?.overwrittenStats.directories).toBe(2);
+    expect(result.conflicts[0]?.overwrittenStats.files).toBe(2);
+    expect(result.conflicts[0]?.overwrittenEntries.map((entry) => entry.relativePath)).toEqual([
+      "existing-nested",
+      "existing-nested/keep.txt",
+      "old.txt",
+    ]);
   });
 
   test("detects duplicate destination names from selected sources", async () => {

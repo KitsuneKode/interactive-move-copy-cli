@@ -1,11 +1,26 @@
 import { access, constants, lstat, stat } from "node:fs/promises";
 import { basename, dirname, join, resolve, sep } from "node:path";
-import type { OperationMode, RemovalMode } from "../core/types.ts";
+import type { OperationMode, PathKind, PathStats, RemovalMode } from "../core/types.ts";
+import { inspectPath } from "../fs/path-stats.ts";
+
+export interface ConflictDetail {
+  source: string;
+  sourceName: string;
+  sourceKind: PathKind;
+  destination: string;
+  destinationKind: PathKind;
+  overwrittenStats: PathStats;
+  overwrittenEntries: Array<{
+    relativePath: string;
+    kind: PathKind;
+  }>;
+  overwrittenEntryOverflow: number;
+}
 
 export interface ValidationResult {
   valid: boolean;
   errors: string[];
-  conflicts: string[];
+  conflicts: ConflictDetail[];
 }
 
 function isNestedPath(parent: string, child: string): boolean {
@@ -18,7 +33,7 @@ export async function validateOperation(
   mode: OperationMode,
 ): Promise<ValidationResult> {
   const errors: string[] = [];
-  const conflicts: string[] = [];
+  const conflicts: ConflictDetail[] = [];
   const destResolved = resolve(destination);
 
   // Destination must exist, be a directory, and be writable.
@@ -50,8 +65,9 @@ export async function validateOperation(
     const sourceResolved = resolve(source);
     resolvedSources.set(source, sourceResolved);
 
+    let sourceInfo: Awaited<ReturnType<typeof lstat>>;
     try {
-      await lstat(sourceResolved);
+      sourceInfo = await lstat(sourceResolved);
     } catch {
       errors.push(`Source "${source}" no longer exists`);
       continue;
@@ -92,8 +108,23 @@ export async function validateOperation(
 
     const destPath = join(destination, name);
     try {
-      await lstat(destPath);
-      conflicts.push(name);
+      const destinationInspection = await inspectPath(destPath, { previewLimit: 12 });
+      const sourceKind: PathKind = sourceInfo.isDirectory()
+        ? "directory"
+        : sourceInfo.isSymbolicLink()
+          ? "symlink"
+          : "file";
+
+      conflicts.push({
+        source: sourceResolved,
+        sourceName: name,
+        sourceKind,
+        destination: destPath,
+        destinationKind: destinationInspection.kind,
+        overwrittenStats: destinationInspection.stats,
+        overwrittenEntries: destinationInspection.previewEntries,
+        overwrittenEntryOverflow: destinationInspection.previewOverflow,
+      });
     } catch {
       // No conflict.
     }
@@ -125,7 +156,7 @@ export async function validateOperation(
   return {
     valid: errors.length === 0,
     errors: [...new Set(errors)],
-    conflicts: [...new Set(conflicts)].sort((a, b) => a.localeCompare(b)),
+    conflicts: conflicts.sort((a, b) => a.sourceName.localeCompare(b.sourceName)),
   };
 }
 

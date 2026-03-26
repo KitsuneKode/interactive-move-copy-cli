@@ -29,6 +29,7 @@ export interface KeyEvent {
 
 export type OperationMode = "move" | "copy" | "remove";
 export type RemovalMode = "trash" | "hard-delete";
+export type PathKind = "file" | "directory" | "symlink";
 export type OperationStrategy =
   | "rename"
   | "verified_copy"
@@ -43,6 +44,13 @@ export interface FuzzyResult {
   positions: number[];
 }
 
+export interface PathStats {
+  items: number;
+  files: number;
+  directories: number;
+  symlinks: number;
+}
+
 export interface ExecutionResult {
   source: string;
   dest: string;
@@ -52,4 +60,6 @@ export interface ExecutionResult {
   verified: boolean;
   bytesVerified: number;
   recoveryPath?: string;
+  sourceKind?: PathKind;
+  sourceStats?: PathStats;
 }
