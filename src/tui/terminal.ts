@@ -4,6 +4,17 @@ import type { KeyEvent } from "../core/types.ts";
 let rawModeEnabled = false;
 let altScreenEnabled = false;
 
+const PASTE_START = "\x1b[200~";
+const PASTE_END = "\x1b[201~";
+
+function isPasteStart(data: string): boolean {
+  return data === PASTE_START;
+}
+
+function isPasteEnd(data: string): boolean {
+  return data === PASTE_END;
+}
+
 export function enterRawMode(): void {
   if (process.stdin.isTTY) {
     process.stdin.setRawMode(true);
@@ -79,10 +90,39 @@ export function parseKeyEvent(data: string): KeyEvent {
 
 export function readKey(): Promise<KeyEvent> {
   return new Promise((resolve) => {
+    let pasteBuffer = "";
+    let inPaste = false;
+
     const handler = (data: string) => {
+      if (isPasteStart(data)) {
+        inPaste = true;
+        pasteBuffer = "";
+        return;
+      }
+
+      if (isPasteEnd(data)) {
+        process.stdin.removeListener("data", handler);
+        const raw = Buffer.from(pasteBuffer);
+        resolve({
+          name: "paste",
+          raw,
+          ctrl: false,
+          shift: false,
+          char: "",
+          text: pasteBuffer,
+        });
+        return;
+      }
+
+      if (inPaste) {
+        pasteBuffer += data;
+        return;
+      }
+
       process.stdin.removeListener("data", handler);
       resolve(parseKeyEvent(data));
     };
+
     process.stdin.on("data", handler);
   });
 }

@@ -86,15 +86,16 @@ function printHelp(mode: OperationMode): void {
       : `
 Keybindings (destination):
   Up/Down     Navigate directories
-  Left        Go to parent
-  Right       Open directory
+  Left        Go to parent / delete search char
+  Right       Open directory / go to selected
+  Type        Fuzzy search directories
+  Enter       Confirm / go to selected
+  Backspace   Go to parent / delete search char
+  Esc         Clear search / cancel
   g           Jump to a destination path or bookmark like ~/dotfiles
   Ctrl+F      Jump to a destination found with fzf from configured roots
-  Enter       Confirm current directory
   c           Confirm current directory
-  Backspace   Go to parent
   Ctrl+R      Reset to the starting directory
-  Esc         Cancel
 `;
 
   console.log(`

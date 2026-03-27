@@ -25,6 +25,7 @@ export interface KeyEvent {
   ctrl: boolean;
   shift: boolean;
   char: string;
+  text?: string;
 }
 
 export type OperationMode = "move" | "copy" | "remove";

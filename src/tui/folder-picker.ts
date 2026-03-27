@@ -4,6 +4,7 @@ import type { FileEntry, OperationMode } from "../core/types.ts";
 import { listDirectory } from "../fs/file-info.ts";
 import type { DestinationSearchContext } from "./destination-search.ts";
 import { promptForDestinationPath, searchDestinationWithFzf } from "./destination-search.ts";
+import { fuzzyMatch, highlightMatch } from "./fuzzy.ts";
 import { clearPreviousFrame, getViewportHeight, render } from "./renderer.ts";
 import {
   enterAltScreen,
@@ -31,12 +32,25 @@ export async function folderPicker(
   let cursor = 0;
   let scrollOffset = 0;
   let notice = "";
+  let searchQuery = "";
+
+  let lastFilteredSource: FileEntry[] | null = null;
+  let lastFilteredQuery = "";
+  let lastFilteredDirs: FileEntry[] = [];
 
   while (true) {
     const allEntries = await listDirectory(currentDir);
-    const dirs = allEntries.filter((e) => e.isDirectory && e.readable);
+    const allDirs = allEntries.filter((e) => e.isDirectory && e.readable);
 
-    const maxCursor = dirs.length; // 0 = "..", then dirs
+    const filteredDirs =
+      allDirs === lastFilteredSource && searchQuery === lastFilteredQuery
+        ? lastFilteredDirs
+        : filterDirectories(allDirs, searchQuery);
+    lastFilteredSource = allDirs;
+    lastFilteredQuery = searchQuery;
+    lastFilteredDirs = filteredDirs;
+
+    const maxCursor = filteredDirs.length;
     if (cursor > maxCursor) cursor = maxCursor;
     if (cursor < 0) cursor = 0;
 
@@ -44,7 +58,16 @@ export async function folderPicker(
     if (cursor < scrollOffset) scrollOffset = cursor;
     if (cursor >= scrollOffset + viewportHeight) scrollOffset = cursor - viewportHeight + 1;
 
-    renderPicker(currentDir, dirs, cursor, scrollOffset, fileCount, mode, notice);
+    renderPicker(
+      currentDir,
+      filteredDirs,
+      cursor,
+      scrollOffset,
+      fileCount,
+      mode,
+      notice,
+      searchQuery,
+    );
     notice = "";
 
     const key = await readKey();
@@ -52,7 +75,14 @@ export async function folderPicker(
     switch (key.name) {
       case "ctrl+c":
       case "escape":
-        return { destination: null, cancelled: true };
+        if (searchQuery) {
+          searchQuery = "";
+          cursor = 0;
+          scrollOffset = 0;
+        } else {
+          return { destination: null, cancelled: true };
+        }
+        break;
 
       case "up":
         if (cursor > 0) cursor--;
@@ -63,20 +93,14 @@ export async function folderPicker(
         break;
 
       case "left": {
-        const parent = dirname(currentDir);
-        if (parent !== currentDir) {
-          currentDir = parent;
+        if (searchQuery) {
+          searchQuery = searchQuery.slice(0, -1);
           cursor = 0;
           scrollOffset = 0;
-        }
-        break;
-      }
-
-      case "right": {
-        if (cursor > 0) {
-          const dir = dirs[cursor - 1];
-          if (dir) {
-            currentDir = dir.path;
+        } else {
+          const parent = dirname(currentDir);
+          if (parent !== currentDir) {
+            currentDir = parent;
             cursor = 0;
             scrollOffset = 0;
           }
@@ -84,16 +108,57 @@ export async function folderPicker(
         break;
       }
 
+      case "right": {
+        if (searchQuery) {
+          if (cursor > 0) {
+            const dir = filteredDirs[cursor - 1];
+            if (dir) {
+              currentDir = dir.path;
+              searchQuery = "";
+              cursor = 0;
+              scrollOffset = 0;
+            }
+          }
+        } else {
+          if (cursor > 0) {
+            const dir = allDirs[cursor - 1];
+            if (dir) {
+              currentDir = dir.path;
+              cursor = 0;
+              scrollOffset = 0;
+            }
+          }
+        }
+        break;
+      }
+
       case "enter": {
-        return { destination: currentDir, cancelled: false };
+        if (searchQuery && cursor > 0) {
+          const dir = filteredDirs[cursor - 1];
+          if (dir) {
+            currentDir = dir.path;
+            searchQuery = "";
+            cursor = 0;
+            scrollOffset = 0;
+          }
+        } else {
+          return { destination: currentDir, cancelled: false };
+        }
+        break;
       }
 
       case "backspace": {
-        const parent = dirname(currentDir);
-        if (parent !== currentDir) {
-          currentDir = parent;
+        if (searchQuery) {
+          searchQuery = searchQuery.slice(0, -1);
           cursor = 0;
           scrollOffset = 0;
+        } else {
+          const parent = dirname(currentDir);
+          if (parent !== currentDir) {
+            currentDir = parent;
+            cursor = 0;
+            scrollOffset = 0;
+          }
         }
         break;
       }
@@ -108,13 +173,24 @@ export async function folderPicker(
           );
           if (result.path) {
             currentDir = result.path;
+            searchQuery = "";
             cursor = 0;
             scrollOffset = 0;
             notice = `Jumped to ${currentDir.replace(process.env.HOME || "", "~")}. Press Enter to confirm.`;
           } else if (result.message) {
             notice = result.message;
           }
+        } else {
+          searchQuery += key.char;
+          cursor = 0;
+          scrollOffset = 0;
         }
+        break;
+
+      case "paste":
+        searchQuery += key.text;
+        cursor = 0;
+        scrollOffset = 0;
         break;
 
       case "ctrl+f": {
@@ -123,6 +199,7 @@ export async function folderPicker(
         );
         if (result.path) {
           currentDir = result.path;
+          searchQuery = "";
           cursor = 0;
           scrollOffset = 0;
           notice = `Jumped to ${currentDir.replace(process.env.HOME || "", "~")}. Press Enter to confirm.`;
@@ -136,11 +213,27 @@ export async function folderPicker(
 
       case "ctrl+r":
         currentDir = initialDir;
+        searchQuery = "";
         cursor = 0;
         scrollOffset = 0;
         break;
     }
   }
+}
+
+function filterDirectories(entries: FileEntry[], query: string): FileEntry[] {
+  if (!query) return entries;
+
+  const results: { entry: FileEntry; score: number }[] = [];
+  for (const entry of entries) {
+    const result = fuzzyMatch(query, entry.name);
+    if (result.matches) {
+      results.push({ entry, score: result.score });
+    }
+  }
+
+  results.sort((a, b) => b.score - a.score);
+  return results.map((r) => r.entry);
 }
 
 function renderPicker(
@@ -151,6 +244,7 @@ function renderPicker(
   fileCount: number,
   mode: OperationMode,
   notice: string,
+  searchQuery: string,
 ): void {
   const { cols } = getTerminalSize();
   const viewportHeight = getViewportHeight();
@@ -159,26 +253,25 @@ function renderPicker(
 
   const lines: string[] = [];
 
-  // Header
   lines.push(
     `${COLORS.header} ${modeLabel}: Select destination ${ANSI.reset}${COLORS.dim} ${dirDisplay} ${ANSI.reset}`,
   );
 
-  // Info
   lines.push(
     ` ${COLORS.status}${fileCount} file${fileCount !== 1 ? "s" : ""} to ${mode}${ANSI.reset}`,
   );
 
-  // Column header
-  lines.push(` ${COLORS.dim}Directories${ANSI.reset}`);
+  if (searchQuery) {
+    const searchDisplay = `${COLORS.search}Filter: ${searchQuery}${ANSI.reset}${COLORS.dim}_${ANSI.reset}`;
+    lines.push(` ${searchDisplay}`);
+  } else {
+    lines.push(` ${COLORS.dim}Directories${ANSI.reset}`);
+  }
 
-  // Separator
   lines.push(` ${COLORS.dim}${"─".repeat(Math.min(cols - 2, 80))}${ANSI.reset}`);
 
-  // Build rows
   const allRows: string[] = [];
 
-  // ".." entry
   const dotdotPrefix = cursor === 0 ? COLORS.cursor : "";
   const dotdotSuffix = cursor === 0 ? ANSI.reset : "";
   allRows.push(` ${dotdotPrefix}  \uf07c ..${dotdotSuffix}`);
@@ -187,7 +280,18 @@ function renderPicker(
     const isCursor = cursor === i + 1;
     const prefix = isCursor ? COLORS.cursor : "";
     const suffix = isCursor ? ANSI.reset : "";
-    allRows.push(` ${prefix}  ${COLORS.directory}${dir.icon} ${dir.name}/${ANSI.reset}${suffix}`);
+
+    let nameDisplay = dir.name;
+    if (searchQuery) {
+      const result = fuzzyMatch(searchQuery, dir.name);
+      if (result.matches) {
+        nameDisplay = highlightMatch(dir.name, result.positions, COLORS.matchHighlight, ANSI.reset);
+      }
+    }
+
+    allRows.push(
+      ` ${prefix}  ${COLORS.directory}${dir.icon} ${nameDisplay}/${ANSI.reset}${suffix}`,
+    );
   }
 
   const visibleRows = allRows.slice(scrollOffset, scrollOffset + viewportHeight);
@@ -199,16 +303,18 @@ function renderPicker(
     lines.push("");
   }
 
-  // Status
-  lines.push(` ${dirs.length} director${dirs.length !== 1 ? "ies" : "y"}`);
+  const totalDirs = dirs.length;
+  lines.push(
+    ` ${searchQuery ? `${totalDirs} matching | ` : ""}${totalDirs} director${totalDirs !== 1 ? "ies" : "y"}`,
+  );
 
-  // Hints
   if (notice) {
     lines.push(` ${COLORS.search}${notice}${ANSI.reset}`);
   } else {
-    lines.push(
-      ` ${COLORS.hint}Left:parent Right:open g:path/bookmark Ctrl+F:fzf Enter:confirm Ctrl+R:reset Esc:cancel${ANSI.reset}`,
-    );
+    const hints = searchQuery
+      ? `${COLORS.hint}Type:filter Left:del Up/Down:nav Right/Enter:open Esc:clear Esc:cancel${ANSI.reset}`
+      : `${COLORS.hint}Left:parent Right:open Type:search g:path/bookmark Ctrl+F:fzf Enter:confirm Ctrl+R:reset Esc:cancel${ANSI.reset}`;
+    lines.push(hints);
   }
 
   render(lines);
