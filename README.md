@@ -87,7 +87,8 @@ bun run relink:global
 - `.github/workflows/version-packages.yml` opens or updates a `Version Packages` PR from merged changesets.
 - Merging the version PR updates `package.json` and changelog entries for the next release.
 - `CI` runs on pull requests and on pushes to `main`, and its workflow summary records the exact package version it validated.
-- `Release` runs on pushes to `main` and manual dispatch. If the version is not on npm yet and `NPM_TOKEN` is configured in GitHub secrets, it publishes the exact `package.json` version of `@kitsunekode/file-ops-cli` and creates a GitHub release tagged `vX.Y.Z`.
+- `Release` runs on pushes to `main` and manual dispatch. It publishes the exact `package.json` version of `@kitsunekode/file-ops-cli` through npm trusted publishing and creates a GitHub release tagged `vX.Y.Z`.
+- For a brand-new package, do one manual bootstrap publish first so the npm package settings page exists and you can attach the trusted publisher to `release.yml`.
 
 ## Usage
 

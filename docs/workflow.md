@@ -39,7 +39,7 @@ Release workflow:
 # 3. merge to main
 # 4. Changesets opens/updates the Version Packages PR
 # 5. merge the version PR
-# 6. GitHub Actions validates and publishes that exact version if NPM_TOKEN is configured
+# 6. GitHub Actions validates and publishes that exact version through npm trusted publishing
 ```
 
 Config smoke tests when config behavior changes:
