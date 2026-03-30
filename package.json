@@ -42,9 +42,9 @@
     "bun": ">=1.0.0"
   },
   "bin": {
-    "mvi": "./bin/mvi",
-    "cpi": "./bin/cpi",
-    "rmi": "./bin/rmi"
+    "mvi": "bin/mvi",
+    "cpi": "bin/cpi",
+    "rmi": "bin/rmi"
   },
   "scripts": {
     "clean": "rm -rf dist",

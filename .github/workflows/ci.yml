@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Read package metadata
+        id: package
+        run: |
+          name=$(bun -e 'const pkg = JSON.parse(await Bun.file("package.json").text()); console.log(pkg.name)')
+          version=$(bun -e 'const pkg = JSON.parse(await Bun.file("package.json").text()); console.log(pkg.version)')
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Run verification
+        run: bun run check
+
+      - name: Validate publish package
+        run: bun run pkg:check
+
+      - name: Write workflow summary
+        if: always()
+        run: |
+          {
+            echo "Validated \`${{ steps.package.outputs.name }}\`"
+            echo
+            echo "- Version: \`${{ steps.package.outputs.version }}\`"
+            echo "- Event: \`${{ github.event_name }}\`"
+            echo "- Ref: \`${{ github.ref_name }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"

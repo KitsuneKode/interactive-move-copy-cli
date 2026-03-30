@@ -84,6 +84,13 @@ Current default shape:
 - After behavior changes, `bun run build` and usually `bun run relink:global` are required before testing the globally linked commands
 - The `bin/*` wrappers must resolve symlinks correctly so `bun link` from `~/.bun/bin` still finds the real project `dist/` directory
 
+## Release Workflow
+
+- `package.json` version is the release source of truth.
+- Work on short-lived dev branches and merge to `main` for release candidates. Do not develop long-lived release changes directly on `main`.
+- `.github/workflows/ci.yml` validates pull requests and `main` with `bun run check` and `bun run pkg:check`, and records the validated package version in the workflow summary.
+- `.github/workflows/release.yml` runs on pushes to `main` and manual dispatch. When `NPM_TOKEN` is configured and the version is not already on npm, it publishes the exact `package.json` version and creates a GitHub release tagged `vX.Y.Z`.
+
 ## Verification
 
 Run these before committing behavior changes:

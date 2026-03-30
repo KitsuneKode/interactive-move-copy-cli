@@ -31,6 +31,15 @@ When testing the globally linked commands after behavior changes:
 bun run relink:global
 ```
 
+Release workflow:
+
+```sh
+# 1. work on a branch
+# 2. bump package.json version when you want a new release
+# 3. merge to main
+# 4. GitHub Actions will validate that exact version in CI and publish it if NPM_TOKEN is configured
+```
+
 Config smoke tests when config behavior changes:
 
 ```sh
