@@ -61,6 +61,8 @@
     "test": "bun test",
     "check": "bun run typecheck && bun run lint && bun run lint:md && bun test",
     "pkg:check": "bun run build && npm pack --dry-run --ignore-scripts",
+    "changeset": "changeset",
+    "version:packages": "changeset version",
     "link:global": "bun run config:init && bun run build && bun link",
     "unlink:global": "bun unlink",
     "relink:global": "bun unlink && bun run link:global",
@@ -76,12 +78,13 @@
     "lint:md:fix": "markdownlint-cli2 --fix \"**/*.md\" \"#node_modules\" \"#.worktrees\""
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.4.6",
+    "@changesets/cli": "^2.30.0",
     "@commitlint/cli": "^20.4.3",
     "@commitlint/config-conventional": "^20.4.3",
     "@types/bun": "latest",
     "husky": "^9.1.7",
     "lint-staged": "^16.3.2",
-    "@biomejs/biome": "^2.4.6",
     "markdownlint-cli2": "^0.21.0"
   },
   "lint-staged": {

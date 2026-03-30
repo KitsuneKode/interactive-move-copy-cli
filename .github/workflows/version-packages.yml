@@ -1,0 +1,52 @@
+name: Version Packages
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: version-packages-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Create or update version PR
+        id: changesets
+        uses: changesets/action@v1
+        with:
+          version: bun run version:packages
+          commit: Version Packages
+          title: Version Packages
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Write workflow summary
+        if: always()
+        run: |
+          {
+            echo "Changesets versioning"
+            echo
+            echo "- Has unreleased changesets: \`${{ steps.changesets.outputs.hasChangesets }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"

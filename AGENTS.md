@@ -86,8 +86,10 @@ Current default shape:
 
 ## Release Workflow
 
-- `package.json` version is the release source of truth.
-- Work on short-lived dev branches and merge to `main` for release candidates. Do not develop long-lived release changes directly on `main`.
+- Add a changeset with `bun run changeset` for user-facing or release-worthy changes.
+- Work on short-lived dev branches and merge to `main`. Do not develop long-lived release changes directly on `main`.
+- `.github/workflows/version-packages.yml` opens or updates a `Version Packages` PR from merged changesets.
+- Merging the version PR updates `package.json` and changelog entries for the next release.
 - `.github/workflows/ci.yml` validates pull requests and `main` with `bun run check` and `bun run pkg:check`, and records the validated package version in the workflow summary.
 - `.github/workflows/release.yml` runs on pushes to `main` and manual dispatch. When `NPM_TOKEN` is configured and the version is not already on npm, it publishes the exact `package.json` version and creates a GitHub release tagged `vX.Y.Z`.
 

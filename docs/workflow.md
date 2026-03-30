@@ -35,9 +35,11 @@ Release workflow:
 
 ```sh
 # 1. work on a branch
-# 2. bump package.json version when you want a new release
+# 2. run bun run changeset for release-worthy changes
 # 3. merge to main
-# 4. GitHub Actions will validate that exact version in CI and publish it if NPM_TOKEN is configured
+# 4. Changesets opens/updates the Version Packages PR
+# 5. merge the version PR
+# 6. GitHub Actions validates and publishes that exact version if NPM_TOKEN is configured
 ```
 
 Config smoke tests when config behavior changes:

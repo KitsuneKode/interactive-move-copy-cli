@@ -65,6 +65,8 @@ bun run config:edit     # open the shared config in $VISUAL / $EDITOR
 bun run test            # run the full test suite
 bun run check           # alias for the current verification suite
 bun run pkg:check       # dry-run the published npm package contents
+bun run changeset       # create a changeset entry for the next release
+bun run version:packages # consume changesets and update release versions/changelogs
 bun run link:global     # build and link mvi/cpi/rmi globally
 bun run unlink:global   # remove the global link
 bun run relink:global   # refresh the global link after changes
@@ -80,8 +82,10 @@ bun run relink:global
 
 ## Release Workflow
 
-- `package.json` version is the release source of truth.
-- Work from short-lived dev branches and merge to `main` when a release candidate is ready.
+- Add a changeset with `bun run changeset` for user-facing or release-worthy changes.
+- Work from short-lived dev branches and merge to `main`.
+- `.github/workflows/version-packages.yml` opens or updates a `Version Packages` PR from merged changesets.
+- Merging the version PR updates `package.json` and changelog entries for the next release.
 - `CI` runs on pull requests and on pushes to `main`, and its workflow summary records the exact package version it validated.
 - `Release` runs on pushes to `main` and manual dispatch. If the version is not on npm yet and `NPM_TOKEN` is configured in GitHub secrets, it publishes the exact `package.json` version of `@kitsunekode/file-ops-cli` and creates a GitHub release tagged `vX.Y.Z`.
 
