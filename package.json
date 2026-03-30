@@ -1,12 +1,38 @@
 {
-  "name": "interactive-move-copy-cli",
+  "name": "@kitsunekode/file-ops-cli",
   "version": "1.0.0",
-  "module": "src/cli.ts",
+  "description": "Interactive Bun-native file move, copy, and remove CLIs with shared safety-first workflows.",
   "type": "module",
-  "private": true,
+  "license": "MIT",
+  "author": "kitsunekode",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/KitsuneKode/interactive-move-copy-cli.git"
+  },
+  "homepage": "https://github.com/KitsuneKode/interactive-move-copy-cli#readme",
+  "bugs": {
+    "url": "https://github.com/KitsuneKode/interactive-move-copy-cli/issues"
+  },
+  "keywords": [
+    "bun",
+    "cli",
+    "copy",
+    "files",
+    "interactive",
+    "move",
+    "remove",
+    "terminal",
+    "trash",
+    "tui"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "files": [
     "bin",
-    "dist",
+    "dist/cpi.js",
+    "dist/mvi.js",
+    "dist/rmi.js",
     "completions",
     "README.md",
     "LICENSE",
@@ -34,14 +60,15 @@
     "config:edit": "bun run src/scripts/config-edit.ts",
     "test": "bun test",
     "check": "bun run typecheck && bun run lint && bun run lint:md && bun test",
+    "pkg:check": "bun run build && npm pack --dry-run --ignore-scripts",
     "link:global": "bun run config:init && bun run build && bun link",
     "unlink:global": "bun unlink",
     "relink:global": "bun unlink && bun run link:global",
     "prepack": "bun run build",
-    "prepublishOnly": "bun run test && bun run build",
+    "prepublishOnly": "bun run check && bun run build",
     "lint-staged": "lint-staged",
     "commitlint": "commitlint --edit",
-    "prepare": "[ -d .git ] && husky || echo 'Skipping husky install (no .git directory)'",
+    "prepare": "[ -f .git/config ] && [ -w .git/config ] && husky || echo 'Skipping husky install (no writable .git config)'",
     "typecheck": "bunx tsc --noEmit",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",

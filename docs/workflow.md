@@ -22,6 +22,7 @@ Full verification:
 ```sh
 bun run check
 bun run build
+bun run pkg:check
 ```
 
 When testing the globally linked commands after behavior changes:

@@ -35,13 +35,25 @@ You can select both files and directories. Selections persist while you navigate
 ## Install
 
 ```sh
+bun add -g @kitsunekode/file-ops-cli
+```
+
+You can also install with npm if Bun is already available on your `PATH` at runtime:
+
+```sh
+npm install -g @kitsunekode/file-ops-cli
+```
+
+This installs `mvi`, `cpi`, and `rmi` globally.
+
+### Install From Source
+
+```sh
 git clone https://github.com/KitsuneKode/interactive-move-copy-cli.git
 cd interactive-move-copy-cli
 bun install
 bun run link:global
 ```
-
-This installs `mvi`, `cpi`, and `rmi` globally.
 
 ### Useful Scripts
 
@@ -52,6 +64,7 @@ bun run config:init     # create or normalize the shared config file
 bun run config:edit     # open the shared config in $VISUAL / $EDITOR
 bun run test            # run the full test suite
 bun run check           # alias for the current verification suite
+bun run pkg:check       # dry-run the published npm package contents
 bun run link:global     # build and link mvi/cpi/rmi globally
 bun run unlink:global   # remove the global link
 bun run relink:global   # refresh the global link after changes
@@ -284,6 +297,8 @@ This tool is designed to avoid silent data loss:
 - After `g` or `Ctrl+F`, the picker jumps to the chosen directory and stays open. Press Enter or `c` to confirm it.
 
 ## Shell Completions
+
+The commands ship completion files, but they are not installed automatically. The examples below assume you are working from a cloned checkout or unpacked package contents.
 
 ### Bash
 
