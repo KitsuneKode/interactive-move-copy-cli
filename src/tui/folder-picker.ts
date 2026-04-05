@@ -133,6 +133,15 @@ export async function folderPicker(
       }
 
       case "enter": {
+        if (cursor === 0) {
+          const parent = dirname(currentDir);
+          if (parent !== currentDir) {
+            currentDir = parent;
+            cursor = 0;
+            scrollOffset = 0;
+          }
+          break;
+        }
         if (searchQuery && cursor > 0) {
           const dir = filteredDirs[cursor - 1];
           if (dir) {
@@ -176,7 +185,7 @@ export async function folderPicker(
             searchQuery = "";
             cursor = 0;
             scrollOffset = 0;
-            notice = `Jumped to ${currentDir.replace(process.env.HOME || "", "~")}. Press Enter to confirm.`;
+            notice = `Jumped to ${currentDir.replace(process.env.HOME || "", "~")}. Press Enter or c to confirm.`;
           } else if (result.message) {
             notice = result.message;
           }
@@ -312,8 +321,10 @@ function renderPicker(
     lines.push(` ${COLORS.search}${notice}${ANSI.reset}`);
   } else {
     const hints = searchQuery
-      ? `${COLORS.hint}Type:filter Left:del Up/Down:nav Right/Enter:open Esc:clear Esc:cancel${ANSI.reset}`
-      : `${COLORS.hint}Left:parent Right:open Type:search g:path/bookmark Ctrl+F:fzf Enter:confirm Ctrl+R:reset Esc:cancel${ANSI.reset}`;
+      ? `${COLORS.hint}Type:filter Left:del Up/Down:nav Right/Enter:open c:confirm Esc:clear/cancel${ANSI.reset}`
+      : cursor === 0
+        ? `${COLORS.hint}Left/Enter:parent Right:open Type:search g:path/bookmark Ctrl+F:fzf c:confirm Ctrl+R:reset Esc:cancel${ANSI.reset}`
+        : `${COLORS.hint}Right/Enter:open Type:search g:path/bookmark Ctrl+F:fzf c:confirm Ctrl+R:reset Esc:cancel${ANSI.reset}`;
     lines.push(hints);
   }
 
