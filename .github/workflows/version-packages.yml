@@ -37,7 +37,7 @@ jobs:
         uses: changesets/action@v1
         with:
           version: bun run version:packages
-          commit: Version Packages
+          commit: "chore(release): version packages"
           title: Version Packages
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
