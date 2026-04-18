@@ -1,5 +1,4 @@
-# Zsh completion bootstrap for mvi, cpi, and rmi.
-# Source this file from .zshrc when you do not want to use fpath autoloading.
+#compdef mvi cpi rmi
 
 _mvi_options() {
   _values "mvi option" \
@@ -64,11 +63,8 @@ _rmi() {
   _message "no more arguments"
 }
 
-if ! (( $+functions[compdef] )); then
-  autoload -Uz compinit
-  compinit -i -d "${XDG_CACHE_HOME:-$HOME/.cache}/zsh/.zcompdump-mvi"
-fi
-
-compdef _mvi mvi
-compdef _cpi cpi
-compdef _rmi rmi
+(( $+functions[compdef] )) && {
+  compdef _mvi mvi
+  compdef _cpi cpi
+  compdef _rmi rmi
+}

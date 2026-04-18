@@ -322,17 +322,21 @@ source /path/to/interactive-move-copy-cli/completions/mvi.bash
 
 ### Zsh
 
-Source the helper file directly from `~/.zshrc`:
+Use zsh's completion path instead of sourcing the file directly:
 
 ```sh
-[[ ! -f ~/.config/zsh/mvi.zsh ]] || source ~/.config/zsh/mvi.zsh
+fpath=(~/.config/zsh/completions $fpath)
+autoload -Uz compinit
+compinit
 ```
 
 One-time setup:
 
 ```sh
-mkdir -p ~/.config/zsh
-cp /path/to/interactive-move-copy-cli/completions/mvi.zsh ~/.config/zsh/mvi.zsh
+mkdir -p ~/.config/zsh/completions
+cp /path/to/interactive-move-copy-cli/completions/mvi.zsh ~/.config/zsh/completions/_mvi
+ln -sf ~/.config/zsh/completions/_mvi ~/.config/zsh/completions/_cpi
+ln -sf ~/.config/zsh/completions/_mvi ~/.config/zsh/completions/_rmi
 ```
 
 The TUI requires an interactive terminal. `--help` and `--version` work in non-interactive shells, but browsing mode does not.
